@@ -75,7 +75,7 @@ export function CoachPanel({ title, subtitle, prompts, readings, entries, onEntr
   const coachOff = config.data && !config.data.coachReady
 
   return (
-    <section className={`flex flex-col rounded-3xl border border-line bg-white ${compact ? '' : 'h-full min-h-[560px]'}`}>
+    <section className={`flex flex-col rounded-3xl border border-line bg-white ${compact ? '' : 'h-full min-h-[460px] lg:min-h-0'}`}>
       <header className="border-b border-line px-5 py-4">
         <h2 className="font-display text-[17px] font-semibold text-ink">{title}</h2>
         <p className="mt-0.5 text-[13px] text-muted">{subtitle}</p>

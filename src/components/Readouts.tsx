@@ -6,9 +6,9 @@ const TRACE_WINDOW_MS = 20000
 
 function Tile({ label, value, unit, note, soft }: { label: string; value: string; unit?: string; note: string; soft: boolean }) {
   return (
-    <div className="rounded-2xl border border-line bg-white px-4 py-3.5">
+    <div className="rounded-2xl border border-line bg-white px-4 py-3">
       <div className="text-[13px] font-medium text-muted">{label}</div>
-      <div className={`mt-1 font-display text-[28px] font-semibold capitalize leading-none tabular-nums ${soft ? 'text-faint' : 'text-ink'}`}>
+      <div className={`mt-1 font-display text-[26px] font-semibold capitalize leading-none tabular-nums ${soft ? 'text-faint' : 'text-ink'}`}>
         {value}
         {unit && <span className="ml-1 font-sans text-[13px] font-medium normal-case text-muted">{unit}</span>}
       </div>
@@ -39,7 +39,7 @@ export function MetricTiles({ metrics, startedAt }: { metrics: LiveMetrics | nul
   const showExpr = expr && expr.label !== 'unspecified'
   const blinks = metrics?.blinksPerMin
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3">
       <Tile label="Breathing" value={br.value} unit="/min" note={br.note} soft={br.soft} />
       <Tile label="Pulse" value={pulse.value} unit="bpm" note={pulse.note} soft={pulse.soft} />
       <Tile label="HRV" value={hrv.value} unit="ms" note={hrv.note} soft={hrv.soft} />

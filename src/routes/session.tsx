@@ -22,7 +22,7 @@ function Choice({ on, onClick, children }: { on: boolean; onClick: () => void; c
       type="button"
       onClick={onClick}
       aria-pressed={on}
-      className={`rounded-2xl border-2 px-4 py-3 text-left transition ${on ? 'border-brand bg-brand-tint' : 'border-line hover:border-faint'}`}
+      className={`rounded-2xl border-2 px-4 py-2.5 text-left transition ${on ? 'border-brand bg-brand-tint' : 'border-line hover:border-faint'}`}
     >
       {children}
     </button>
@@ -104,35 +104,38 @@ function SessionPage() {
   const vitalsMissing = config.data && !config.data.vitalsReady
   const hint = session.validation && !session.validation.ok ? session.validation.hint || 'Adjusting camera' : null
 
+  const showStats = live || session.phase === 'stopping'
+  const statusClass =
+    session.status === 'Running'
+      ? 'bg-green-tint text-green-ink'
+      : session.status === 'Error'
+        ? 'bg-red-tint text-red-ink'
+        : session.status === 'Reconnecting'
+          ? 'bg-amber-tint text-ink'
+          : 'bg-surface text-muted'
+  const columns = showStats
+    ? 'lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)_minmax(340px,0.95fr)]'
+    : 'lg:grid-cols-[minmax(0,1.2fr)_minmax(380px,0.8fr)]'
+
   return (
-    <div className="min-h-dvh bg-white">
-      <header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
+    <div className="flex min-h-dvh flex-col bg-white lg:h-dvh lg:overflow-hidden">
+      <header className="flex shrink-0 items-center justify-between px-6 py-3.5">
         <Brand />
         <div className="flex items-center gap-3">
-        <Link
-          to="/settings"
-          className="rounded-xl border border-line px-3.5 py-2 text-[14px] font-semibold text-ink transition hover:border-ink"
-        >
-          Settings
-        </Link>
-        <span
-          className={`rounded-full px-3 py-1.5 text-[13px] font-semibold ${
-            session.status === 'Running'
-              ? 'bg-green-tint text-green-ink'
-              : session.status === 'Error'
-                ? 'bg-red-tint text-red-ink'
-                : session.status === 'Reconnecting'
-                  ? 'bg-amber-tint text-ink'
-                  : 'bg-surface text-muted'
-          }`}
-        >
-          {session.status === 'Running' ? 'Live' : session.status}
-        </span>
+          <Link
+            to="/settings"
+            className="rounded-xl border border-line px-3.5 py-2 text-[14px] font-semibold text-ink transition hover:border-ink"
+          >
+            Settings
+          </Link>
+          <span className={`rounded-full px-3 py-1.5 text-[13px] font-semibold ${statusClass}`}>
+            {session.status === 'Running' ? 'Live' : session.status}
+          </span>
         </div>
       </header>
 
       {session.error && (
-        <div className="mx-auto mb-4 flex max-w-7xl items-start gap-3 px-5 sm:px-8">
+        <div className="shrink-0 px-6 pb-3">
           <div className="flex w-full items-start gap-3 rounded-2xl bg-red-tint px-4 py-3 text-[14px] text-red-ink">
             <strong className="font-semibold">{session.error.code}</strong>
             <span className="flex-1">{session.error.message}</span>
@@ -143,42 +146,43 @@ function SessionPage() {
         </div>
       )}
 
-      <main className="mx-auto grid max-w-7xl gap-8 px-5 pb-12 sm:px-8 lg:grid-cols-[1.25fr_1fr]">
-        <div className={session.phase === 'summary' ? 'hidden' : 'flex flex-col gap-6'}>
+      <main className={`grid min-h-0 flex-1 gap-5 px-6 pb-5 ${columns}`}>
+        <section className={session.phase === 'summary' ? 'hidden' : 'flex min-h-0 flex-col items-center justify-center'}>
           <CameraStage videoRef={session.videoRef} faceRef={session.faceRef} pace={pace} live={live} mood={mood.now} hint={hint} />
+        </section>
 
-          {live && (
-            <>
-              <div className="flex items-center justify-center gap-4 rounded-2xl border border-line px-5 py-3.5">
-                <div className="text-center">
-                  <div className="text-[12px] font-semibold uppercase tracking-wider text-muted">You started</div>
-                  <div className="font-display text-[20px] font-semibold" style={{ color: MOODS[mood.first ?? 'reading'].color }}>
-                    {mood.first ? MOODS[mood.first].label : 'Reading'}
-                  </div>
-                </div>
-                <span className="h-0.5 w-10 rounded bg-line" />
-                <div className="text-center">
-                  <div className="text-[12px] font-semibold uppercase tracking-wider text-muted">Right now</div>
-                  <div className="font-display text-[20px] font-semibold" style={{ color: MOODS[mood.now].color }}>
-                    {MOODS[mood.now].label}
-                  </div>
+        {showStats && (
+          <section className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+            <div className="flex items-center justify-center gap-4 rounded-2xl border border-line px-4 py-3">
+              <div className="text-center">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">You started</div>
+                <div className="font-display text-[19px] font-semibold" style={{ color: MOODS[mood.first ?? 'reading'].color }}>
+                  {mood.first ? MOODS[mood.first].label : 'Reading'}
                 </div>
               </div>
-              <MetricTiles metrics={metrics} startedAt={session.startedAt || Date.now()} />
-              <BreathTrace traceRef={session.traceRef} live={live} />
-              <button
-                type="button"
-                onClick={session.stop}
-                className="rounded-xl bg-ink px-5 py-3.5 text-[16px] font-semibold text-white transition hover:bg-black"
-              >
-                End session
-              </button>
-            </>
-          )}
-        </div>
+              <span className="h-0.5 w-8 rounded bg-line" />
+              <div className="text-center">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">Right now</div>
+                <div className="font-display text-[19px] font-semibold" style={{ color: MOODS[mood.now].color }}>
+                  {MOODS[mood.now].label}
+                </div>
+              </div>
+            </div>
+            <MetricTiles metrics={metrics} startedAt={session.startedAt || Date.now()} />
+            <BreathTrace traceRef={session.traceRef} live={live} />
+            <button
+              type="button"
+              onClick={session.stop}
+              className="mt-auto rounded-xl bg-ink px-5 py-3.5 text-[16px] font-semibold text-white transition hover:bg-black"
+            >
+              End session
+            </button>
+            <p className="text-center text-[11px] text-muted">General wellness feedback only. Not a medical device.</p>
+          </section>
+        )}
 
         {session.phase === 'summary' && session.summary && (
-          <div className="flex flex-col gap-5">
+          <section className="flex min-h-0 flex-col gap-4 overflow-y-auto">
             <h1 className="font-display text-[34px] font-semibold tracking-tight text-ink">Session done</h1>
             {session.summary.moodFirst && (
               <p
@@ -213,40 +217,38 @@ function SessionPage() {
             >
               New session
             </button>
-          </div>
+          </section>
         )}
 
-        <aside className="lg:sticky lg:top-6 lg:self-start">
+        <aside className={`flex min-h-0 flex-col ${session.phase === 'idle' ? 'lg:justify-center' : ''}`}>
           {session.phase === 'idle' && (
-            <section className="rounded-3xl border border-line p-6">
-              <h1 className="font-display text-[26px] font-semibold tracking-tight text-ink">Set up your session</h1>
-              <div className="mt-6 text-[13px] font-semibold uppercase tracking-wider text-muted">Getting ready for</div>
-              <div className="mt-3 grid grid-cols-3 gap-2.5">
+            <section className="flex min-h-0 flex-col overflow-y-auto rounded-3xl border border-line p-5">
+              <h1 className="font-display text-[24px] font-semibold tracking-tight text-ink">Set up your session</h1>
+              <div className="mt-4 text-[12px] font-semibold uppercase tracking-wider text-muted">Getting ready for</div>
+              <div className="mt-2 grid grid-cols-3 gap-2">
                 {Object.values(MODES).map((m) => (
                   <Choice key={m.id} on={mode === m.id} onClick={() => setMode(m.id)}>
                     <span className="font-semibold text-ink">{m.name}</span>
                   </Choice>
                 ))}
               </div>
-              <div className="mt-6 text-[13px] font-semibold uppercase tracking-wider text-muted">Breathing guide</div>
-              <div className="mt-3 flex flex-col gap-2.5">
+              <div className="mt-4 text-[12px] font-semibold uppercase tracking-wider text-muted">Breathing guide</div>
+              <div className="mt-2 flex flex-col gap-2">
                 {Object.values(PACES).map((p) => (
                   <Choice key={p.id} on={paceId === p.id} onClick={() => setPaceId(p.id)}>
-                    <span className="block font-semibold text-ink">{p.name}</span>
-                    <span className="block text-[14px] text-muted">{p.detail}</span>
+                    <span className="font-semibold text-ink">{p.name}</span>
+                    <span className="ml-2 text-[14px] text-muted">{p.detail}</span>
                   </Choice>
                 ))}
               </div>
-              <ul className="mt-6 list-disc space-y-1 pl-5 text-[14px] leading-relaxed text-muted">
-                <li>Face a window or lamp so your face is evenly lit.</li>
-                <li>Keep your face and upper chest in view.</li>
-                <li>Stay fairly still for the first 30 seconds.</li>
-              </ul>
+              <p className="mt-4 text-[13px] leading-relaxed text-muted">
+                Face a window or lamp, keep your face and upper chest in view, and stay still for the first 30 seconds.
+              </p>
               <button
                 type="button"
                 onClick={begin}
                 disabled={!!vitalsMissing}
-                className="mt-6 w-full rounded-xl bg-brand px-5 py-4 text-[17px] font-semibold text-white transition hover:bg-brand-dark disabled:opacity-50"
+                className="mt-4 w-full rounded-xl bg-brand px-5 py-3.5 text-[17px] font-semibold text-white transition hover:bg-brand-dark disabled:opacity-50"
               >
                 Start session
               </button>
@@ -268,7 +270,7 @@ function SessionPage() {
             </section>
           )}
 
-          {(live || session.phase === 'stopping') && (
+          {showStats && (
             <CoachPanel
               title="Coach"
               subtitle="Tells you what to do to stay calm, using your live readings."
@@ -293,10 +295,6 @@ function SessionPage() {
           )}
         </aside>
       </main>
-
-      <footer className="mx-auto max-w-7xl px-5 pb-8 text-[12px] text-muted sm:px-8">
-        General wellness feedback only. Calmo is not a medical device.
-      </footer>
     </div>
   )
 }

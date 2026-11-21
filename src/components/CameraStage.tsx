@@ -96,8 +96,8 @@ export function CameraStage({ videoRef, faceRef, pace, live, mood, hint }: Props
   const moodInfo = MOODS[mood]
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="relative aspect-square w-full max-w-[460px]">
+    <div className="flex w-full flex-col items-center">
+      <div className="relative aspect-square" style={{ width: 'min(100%, 460px, calc(100dvh - 250px))' }}>
         <div
           ref={ringRef}
           className="absolute inset-0 rounded-full transition-colors duration-500"
@@ -132,7 +132,7 @@ export function CameraStage({ videoRef, faceRef, pace, live, mood, hint }: Props
       </div>
 
       {live && (
-        <div className="mt-6 w-full max-w-[360px]">
+        <div className="mt-4 w-full max-w-[360px]">
           <div className="text-center">
             <span className="font-display text-[30px] font-semibold" style={{ color: PHASE_BAR[pacer.kind] }}>
               {PHASE_TEXT[pacer.kind]}
