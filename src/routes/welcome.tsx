@@ -66,8 +66,9 @@ function CalmArt() {
     <div className="relative grid aspect-square w-full max-w-[340px] place-items-center">
       <div ref={ringRef} className="absolute inset-0 rounded-full bg-green-tint" style={{ transform: 'scale(0.5)' }} />
       <div className="relative grid aspect-square w-[46%] place-items-center rounded-full bg-green">
-        <span key={pacer.kind} className="calmo-fade-in text-center font-display text-white">
+        <span className="text-center font-display text-white">
           <span className="block text-[18px] font-semibold">{PHASE_TEXT[pacer.kind]}</span>
+          <span className="mt-1 block text-[26px] font-semibold tabular-nums">{pacer.beat}</span>
         </span>
       </div>
     </div>

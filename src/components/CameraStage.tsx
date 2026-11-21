@@ -30,15 +30,13 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 export function CameraStage({ videoRef, faceRef, pace, live, mood, hint }: Props) {
   const ringRef = useRef<HTMLDivElement | null>(null)
-  const barRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const boxRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
   const moodRef = useRef(mood)
   moodRef.current = mood
 
-  const pacer = usePacer(pace, live, (level, progress) => {
+  const pacer = usePacer(pace, live, (level) => {
     if (ringRef.current) ringRef.current.style.transform = `scale(${(0.8 + level * 0.2).toFixed(4)})`
-    if (barRef.current) barRef.current.style.transform = `scaleX(${progress.toFixed(4)})`
   })
 
   useEffect(() => {
@@ -138,8 +136,20 @@ export function CameraStage({ videoRef, faceRef, pace, live, mood, hint }: Props
               {PHASE_TEXT[pacer.kind]}
             </span>
           </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface">
-            <div ref={barRef} className="h-full origin-left rounded-full" style={{ background: PHASE_BAR[pacer.kind], transform: 'scaleX(0)' }} />
+          <div className="mt-2 flex items-center justify-center gap-3" aria-live="off">
+            {Array.from({ length: pacer.duration }, (_, i) => i + 1).map((n) => (
+              <span
+                key={n}
+                className="grid size-9 place-items-center rounded-full font-display text-[16px] font-semibold tabular-nums transition-colors duration-300"
+                style={
+                  n <= pacer.beat
+                    ? { background: PHASE_BAR[pacer.kind], color: '#FFFFFF' }
+                    : { background: '#F2F4F7', color: '#98A2B3' }
+                }
+              >
+                {n}
+              </span>
+            ))}
           </div>
         </div>
       )}

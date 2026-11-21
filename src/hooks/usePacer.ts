@@ -4,12 +4,19 @@ import type { Pace, PhaseKind } from '../lib/paces'
 export interface PacerState {
   kind: PhaseKind
   count: number
+  beat: number
+  duration: number
 }
 
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
 
 export function usePacer(pace: Pace, active: boolean, onFrame: (level: number, progress: number) => void): PacerState {
-  const [state, setState] = useState<PacerState>({ kind: pace.phases[0][0], count: pace.phases[0][1] })
+  const [state, setState] = useState<PacerState>({
+    kind: pace.phases[0][0],
+    count: pace.phases[0][1],
+    beat: 1,
+    duration: pace.phases[0][1],
+  })
   const frameRef = useRef(onFrame)
   frameRef.current = onFrame
 
@@ -35,7 +42,7 @@ export function usePacer(pace: Pace, active: boolean, onFrame: (level: number, p
           if (kind !== lastKind || count !== lastCount) {
             lastKind = kind
             lastCount = count
-            setState({ kind, count })
+            setState({ kind, count, beat: Math.min(dur, Math.floor(t) + 1), duration: dur })
           }
           break
         }
