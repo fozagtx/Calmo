@@ -1,7 +1,6 @@
 *This is a submission for the [Presage SmartSpectra SDK Challenge](https://dev.to/challenges/presage-2026-11-04)*
 
 ## What I Built
-<!-- Provide an overview of your experience and what it lets people do. -->
 
 **Calmo** helps you fix your emotional stress before it ruins your day.
 
@@ -21,12 +20,10 @@ Calmo runs two ways from one codebase: a **Mac app** (Electron) and a **local we
 ![Settings with keys and the coach model picker](https://raw.githubusercontent.com/fozagtx/Calmo/main/docs/screens/4-settings.png)
 
 ## Demo
-<!-- Embed or link your demo video showing the live Presage signal(s) in action. Public hosting of your app is optional. -->
 
 TODO: add your demo video link here.
 
 ## Code
-<!-- Share a link to your public code repository. Make sure it includes setup instructions. -->
 
 https://github.com/fozagtx/Calmo
 
@@ -36,7 +33,6 @@ https://github.com/fozagtx/Calmo
 The README covers setup for both.
 
 ## How It Responds to Human Signals
-<!-- Which live Presage signal(s) does your app use (such as pulse, breathing rate, HRV, or expressions), and how does the experience respond to them in real time? Walk us through how you integrated the SmartSpectra SDK. -->
 
 Calmo requests three SmartSpectra metric groups: `breathingMetrics`, `cardioMetrics` and `faceMetrics`.
 
@@ -63,9 +59,6 @@ Calmo requests three SmartSpectra metric groups: `breathingMetrics`, `cardioMetr
 - **Shared.** Both paths expose the same events (`processingStatus`, `validationStatus`, `metrics`, `error`), so the UI does not care which one is running. On a retryable error such as a brief network drop, Calmo calls `reset()` and `start()` again, up to 3 times, and keeps your readings.
 
 ## Prize Categories
-<!-- Are you entering a prize category? Note which one(s) apply (Most Creative or Delightful Use, Best Thoughtful Real-World Use, or both). If not, you can remove this section. -->
-<!-- Most Creative or Delightful Use: tell us what inspired your project and what makes it original, playful, or unexpected. -->
-<!-- Best Thoughtful Real-World Use: tell us what real-world need your project addresses, who it's for, and how you designed it to be usable for those people. -->
 
 **Best Thoughtful Real-World Use.**
 
@@ -80,8 +73,6 @@ Designed for that moment:
 - Quick to use. Three to five minutes before you walk in.
 
 ## Consent and Data Handling
-<!-- Required: explain how your app obtains camera consent and handles data. Disclose any storage, sharing, retention, deletion, SDK telemetry, or optional AI service use. -->
-<!-- Reminder: diagnosis or treatment claims, medical decision-making, and covert or non-consensual monitoring are not allowed. -->
 
 **Camera consent**
 
@@ -114,13 +105,5 @@ Designed for that moment:
 **Not medical.** Calmo gives general wellness feedback only. It does not diagnose, treat or make medical decisions, the coach is instructed not to give medical advice, and the state ring is an estimate, not an assessment. There is no covert monitoring: the camera runs only while you can see yourself in the circle.
 
 ## Agent Session
-<!-- Optional but encouraged: upload your transcript at https://dev.to/agent_sessions/new, curate or slice the parts worth showing, and embed it right here. Supported tools include Claude Code, Gemini CLI, Codex, GitHub Copilot CLI, and Pi. -->
-<!-- Sessions are unlisted by default, so hit Make Public before you publish or judges won't be able to open it. Check your transcript for keys and sensitive data first. -->
 
 TODO (optional): embed your agent session here.
-
-<!-- Don't forget to add a cover image if you want! -->
-
-<!-- Reminder: Team submissions are not allowed, and each participant may submit only one entry. -->
-
-<!-- Thanks for participating! -->
