@@ -33,19 +33,36 @@ function readingsNote(r: CoachReadings): string {
   return parts.join(' ')
 }
 
-export async function listModels(key: string): Promise<string[]> {
+export interface ModelOption {
+  id: string
+  name: string
+}
+
+export async function listModels(key: string): Promise<ModelOption[]> {
   if (!key) throw new Error('Add an OpenServ key to load the model list.')
   const res = await fetch('https://inference-api.openserv.ai/v1/models', {
     headers: { Authorization: `Bearer ${key}` },
     signal: AbortSignal.timeout(20000),
   })
   if (!res.ok) throw new Error(STATUS_HINTS[res.status] ?? `OpenServ returned ${res.status}.`)
-  const body = (await res.json()) as { data?: Array<{ id?: unknown; endpoints?: unknown }> }
-  const ids = (body.data ?? [])
-    .filter((m) => !Array.isArray(m.endpoints) || m.endpoints.some((e) => String(e).includes('chat/completions')))
-    .map((m) => m.id)
-    .filter((id): id is string => typeof id === 'string' && id.length > 0)
-  return [...new Set(ids)].sort()
+  const body = (await res.json()) as {
+    items?: Array<{ modelId?: unknown; displayName?: unknown; endpoints?: unknown }>
+    data?: Array<{ id?: unknown; endpoints?: unknown }>
+  }
+  const raw = [
+    ...(body.items ?? []).map((m) => ({ id: m.modelId, name: m.displayName, endpoints: m.endpoints })),
+    ...(body.data ?? []).map((m) => ({ id: m.id, name: m.id, endpoints: m.endpoints })),
+  ]
+  const seen = new Set<string>()
+  const models: ModelOption[] = []
+  for (const m of raw) {
+    if (typeof m.id !== 'string' || !m.id || seen.has(m.id)) continue
+    const chat = !Array.isArray(m.endpoints) || m.endpoints.some((e) => /chat/i.test(String(e)))
+    if (!chat) continue
+    seen.add(m.id)
+    models.push({ id: m.id, name: typeof m.name === 'string' && m.name ? m.name : m.id })
+  }
+  return models
 }
 
 export async function askCoach(key: string, model: string, data: AskRequest): Promise<string> {
@@ -62,7 +79,6 @@ export async function askCoach(key: string, model: string, data: AskRequest): Pr
         { role: 'user', content: data.message },
       ],
       max_completion_tokens: 600,
-      reasoning_effort: 'low',
     }),
     signal: AbortSignal.timeout(45000),
   })

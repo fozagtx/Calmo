@@ -99,7 +99,7 @@ export function CameraStage({ videoRef, faceRef, pace, live, mood, hint }: Props
         <div
           ref={ringRef}
           className="absolute inset-0 rounded-full transition-colors duration-500"
-          style={{ background: live ? PHASE_RING[pacer.kind] : '#F2F4F7', transform: live ? 'scale(0.8)' : 'scale(0.92)' }}
+          style={{ background: live && !pacer.ready ? PHASE_RING[pacer.kind] : '#F2F4F7', transform: live ? 'scale(0.8)' : 'scale(0.92)' }}
         />
         <div
           className="absolute inset-[10%] overflow-hidden rounded-full bg-surface transition-colors duration-700"
@@ -130,27 +130,11 @@ export function CameraStage({ videoRef, faceRef, pace, live, mood, hint }: Props
       </div>
 
       {live && (
-        <div className="mt-4 w-full max-w-[360px]">
-          <div className="text-center">
-            <span className="font-display text-[30px] font-semibold" style={{ color: PHASE_BAR[pacer.kind] }}>
-              {PHASE_TEXT[pacer.kind]}
-            </span>
-          </div>
-          <div className="mt-2 flex items-center justify-center gap-3" aria-live="off">
-            {Array.from({ length: pacer.duration }, (_, i) => i + 1).map((n) => (
-              <span
-                key={n}
-                className="grid size-9 place-items-center rounded-full font-display text-[16px] font-semibold tabular-nums transition-colors duration-300"
-                style={
-                  n <= pacer.beat
-                    ? { background: PHASE_BAR[pacer.kind], color: '#FFFFFF' }
-                    : { background: '#F2F4F7', color: '#98A2B3' }
-                }
-              >
-                {n}
-              </span>
-            ))}
-          </div>
+        <div className="mt-5 flex items-baseline gap-3">
+          <span className="font-display text-[30px] font-semibold" style={{ color: pacer.ready ? '#101828' : PHASE_BAR[pacer.kind] }}>
+            {pacer.ready ? 'Get ready' : PHASE_TEXT[pacer.kind]}
+          </span>
+          <span className="w-6 font-display text-[30px] font-semibold tabular-nums text-muted">{pacer.lead || ''}</span>
         </div>
       )}
       {live && hint && (

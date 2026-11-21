@@ -35,7 +35,7 @@ Open **Settings**, paste your keys, then start a session:
 - SmartSpectra key (required): https://physiology.presagetech.com
 - OpenServ key (optional, turns on the coach): https://console.openserv.ai/settings/keys
 
-Keys are encrypted with your Mac login keychain.
+Keys stay on your Mac, in a file only your user account can read.
 
 ## Web app (local)
 

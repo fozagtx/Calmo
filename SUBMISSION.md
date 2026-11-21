@@ -89,7 +89,7 @@ Designed for that moment:
 **What is stored**
 
 - Calmo saves no video, no vitals and no session history. Readings, chat and summary live in memory and are gone when you start a new session or close the window.
-- API keys: on the Mac they are encrypted with macOS `safeStorage` (backed by your login keychain) in Calmo's app data folder. In the web version they live in a local `.env` file that git ignores.
+- API keys: on the Mac they are saved in a file in Calmo's app data folder that only your user account can read. In the web version they live in a local `.env` file that git ignores. Keys are never sent anywhere except to the service they belong to.
 
 **SDK network use and telemetry**
 

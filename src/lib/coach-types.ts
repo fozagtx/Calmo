@@ -51,4 +51,4 @@ export interface CalmoBridge {
   models(): Promise<ModelList>
 }
 
-export type ModelList = { ok: true; models: string[] } | { ok: false; error: string }
+export type ModelList = { ok: true; models: Array<{ id: string; name: string }> } | { ok: false; error: string }

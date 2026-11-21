@@ -1,5 +1,5 @@
 import { app, safeStorage } from 'electron'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { parseEnv } from 'node:util'
 import type { KeyUpdate } from '../src/lib/coach-types'
@@ -10,7 +10,15 @@ interface StoredKeys {
   model: string
 }
 
+interface KeyFile {
+  v?: number
+  smartspectra?: string
+  serv?: string
+  model?: string
+}
+
 const DEFAULT_MODEL = 'gpt-5.4-mini'
+const FORMAT = 2
 
 const keysFile = () => path.join(app.getPath('userData'), 'keys.json')
 
@@ -26,7 +34,7 @@ function devEnv(): Partial<StoredKeys> {
   }
 }
 
-function decrypt(value: unknown): string {
+function legacyDecrypt(value: unknown): string {
   if (typeof value !== 'string' || !value) return ''
   try {
     return safeStorage.decryptString(Buffer.from(value, 'base64'))
@@ -35,39 +43,43 @@ function decrypt(value: unknown): string {
   }
 }
 
-function encrypt(value: string): string {
-  return value ? safeStorage.encryptString(value).toString('base64') : ''
+function writeFile(data: KeyFile): void {
+  writeFileSync(keysFile(), JSON.stringify({ ...data, v: FORMAT }), { mode: 0o600 })
+  chmodSync(keysFile(), 0o600)
+}
+
+function loadFile(): KeyFile {
+  if (!existsSync(keysFile())) return {}
+  let raw: KeyFile
+  try {
+    raw = JSON.parse(readFileSync(keysFile(), 'utf8')) as KeyFile
+  } catch {
+    return {}
+  }
+  if (raw.v === FORMAT) return raw
+  const migrated: KeyFile = {
+    smartspectra: legacyDecrypt(raw.smartspectra),
+    serv: legacyDecrypt(raw.serv),
+    model: typeof raw.model === 'string' ? raw.model : undefined,
+  }
+  if (migrated.smartspectra || migrated.serv) writeFile(migrated)
+  return migrated
 }
 
 export function readKeys(): StoredKeys {
-  let saved: Record<string, unknown> = {}
-  if (existsSync(keysFile())) {
-    try {
-      saved = JSON.parse(readFileSync(keysFile(), 'utf8')) as Record<string, unknown>
-    } catch {
-      saved = {}
-    }
-  }
+  const saved = loadFile()
   const env = devEnv()
   return {
-    smartspectra: decrypt(saved.smartspectra) || env.smartspectra || '',
-    serv: decrypt(saved.serv) || env.serv || '',
-    model: (typeof saved.model === 'string' && saved.model) || env.model || DEFAULT_MODEL,
+    smartspectra: saved.smartspectra || env.smartspectra || '',
+    serv: saved.serv || env.serv || '',
+    model: saved.model || env.model || DEFAULT_MODEL,
   }
 }
 
 export function saveKeys(update: KeyUpdate): void {
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('Secure storage is not available on this Mac.')
-  let saved: Record<string, unknown> = {}
-  if (existsSync(keysFile())) {
-    try {
-      saved = JSON.parse(readFileSync(keysFile(), 'utf8')) as Record<string, unknown>
-    } catch {
-      saved = {}
-    }
-  }
-  if (update.smartspectra !== undefined) saved.smartspectra = encrypt(update.smartspectra.trim())
-  if (update.serv !== undefined) saved.serv = encrypt(update.serv.trim())
+  const saved = loadFile()
+  if (update.smartspectra !== undefined) saved.smartspectra = update.smartspectra.trim()
+  if (update.serv !== undefined) saved.serv = update.serv.trim()
   if (update.model !== undefined) saved.model = update.model.trim() || DEFAULT_MODEL
-  writeFileSync(keysFile(), JSON.stringify(saved), { mode: 0o600 })
+  writeFile(saved)
 }

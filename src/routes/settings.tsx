@@ -41,7 +41,7 @@ function ModelPicker() {
   })
   const current = config.data?.model ?? 'gpt-5.4-mini'
   const list = models.data?.ok ? models.data.models : []
-  const options = list.includes(current) ? list : [current, ...list]
+  const options = list.some((m) => m.id === current) ? list : [{ id: current, name: current }, ...list]
   const problem = !config.data?.coachReady
     ? 'Add an OpenServ key to load the model list.'
     : models.data && !models.data.ok
@@ -62,8 +62,8 @@ function ModelPicker() {
           className="mt-2 w-full cursor-pointer appearance-none rounded-xl border border-line bg-white px-3.5 py-3 text-[15px] text-ink outline-none focus:border-brand disabled:cursor-default disabled:bg-surface"
         >
           {options.map((m) => (
-            <option key={m} value={m}>
-              {m}
+            <option key={m.id} value={m.id}>
+              {m.name === m.id ? m.id : `${m.name} (${m.id})`}
             </option>
           ))}
         </select>
@@ -141,7 +141,7 @@ function Settings() {
         {desktop ? (
           <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-6 rounded-3xl border border-line p-6">
             <p className="text-[14px] leading-relaxed text-muted">
-              Keys are encrypted with your Mac login keychain and stored only on this Mac. Leave a field empty to keep the saved value.
+              Keys are saved only on this Mac, in Calmo's app data folder, readable only by your user account. Leave a field empty to keep the saved value.
             </p>
             <label className="block">
               <span className="font-semibold text-ink">SmartSpectra API key</span>
