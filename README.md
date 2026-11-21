@@ -63,5 +63,3 @@ npm run check        # TypeScript strict
 Video never leaves your computer and nothing is recorded or saved. SmartSpectra telemetry is off. The coach only receives numbers (breathing, pulse, HRV, expression label, state) and what you type.
 
 Calmo gives general wellness feedback. It is not a medical device.
-
-Built for the Presage SmartSpectra SDK Challenge. See [SUBMISSION.md](SUBMISSION.md).
