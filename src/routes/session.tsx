@@ -148,7 +148,7 @@ function SessionPage() {
 
       <main className={`grid min-h-0 flex-1 gap-5 px-6 pb-5 ${columns}`}>
         <section className={session.phase === 'summary' ? 'hidden' : 'flex min-h-0 flex-col items-center justify-center'}>
-          <CameraStage videoRef={session.videoRef} faceRef={session.faceRef} pace={pace} live={live} mood={mood.now} hint={hint} />
+          <CameraStage videoRef={session.videoRef} bindVideo={session.bindVideo} faceRef={session.faceRef} pace={pace} live={live} mood={mood.now} hint={hint} />
         </section>
 
         {showStats && (

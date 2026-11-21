@@ -10,6 +10,7 @@ const PHASE_BAR = { in: '#1570EF', hold: '#F79009', out: '#12B76A' } as const
 
 interface Props {
   videoRef: RefObject<HTMLVideoElement | null>
+  bindVideo: (el: HTMLVideoElement | null) => void
   faceRef: RefObject<{ box: FaceBox; at: number } | null>
   pace: Pace
   live: boolean
@@ -28,7 +29,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath()
 }
 
-export function CameraStage({ videoRef, faceRef, pace, live, mood, hint }: Props) {
+export function CameraStage({ videoRef, bindVideo, faceRef, pace, live, mood, hint }: Props) {
   const ringRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const boxRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
@@ -106,7 +107,7 @@ export function CameraStage({ videoRef, faceRef, pace, live, mood, hint }: Props
           style={{ boxShadow: `0 0 0 6px ${live ? moodInfo.color : '#EAECF0'}` }}
         >
           <video
-            ref={videoRef}
+            ref={bindVideo}
             autoPlay
             playsInline
             muted

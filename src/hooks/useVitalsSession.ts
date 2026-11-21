@@ -51,6 +51,15 @@ const ERROR_NAMES = invert(SmartSpectraErrorCode as unknown as Record<string, nu
 
 export function useVitalsSession() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const bindVideo = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el
+    const stream = streamRef.current
+    if (el && stream && el.srcObject !== stream) {
+      el.srcObject = stream
+      void el.play().catch(() => undefined)
+    }
+  }, [])
   const sdkRef = useRef<VitalsSource | null>(null)
   const trackerRef = useRef<VitalsTracker | null>(null)
   const traceRef = useRef<Array<[number, number]>>([])
@@ -115,6 +124,7 @@ export function useVitalsSession() {
       } catch {
         sdkRef.current = null
       }
+      streamRef.current = null
       const video = videoRef.current
       if (video) video.srcObject = null
     }
@@ -189,6 +199,7 @@ export function useVitalsSession() {
       sdkRef.current = sdk
 
       sdk.on('streamAvailable', (stream: MediaStream) => {
+        streamRef.current = stream
         const video = videoRef.current
         if (!video) return
         video.srcObject = stream
@@ -292,6 +303,7 @@ export function useVitalsSession() {
 
   return {
     videoRef,
+    bindVideo,
     traceRef,
     faceRef,
     phase,
