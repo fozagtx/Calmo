@@ -35,27 +35,13 @@ export interface SessionSummary {
   hrv: Span | null
 }
 
-export type ServerMessage =
-  | { type: 'started'; mode: ModeId; pace: PaceId }
-  | { type: 'status'; status: string }
-  | { type: 'validation'; code: string; ok: boolean; tuning: boolean; hint: string }
-  | {
-      type: 'metrics'
-      br: Reading | null
-      pulse: Reading | null
-      hrv: Reading | null
-      expression: ExpressionReading | null
-      talking: boolean
-      blinksPerMin: number | null
-      face: FaceBox | null
-      trace: Array<[number, number]>
-    }
-  | { type: 'error'; code: string; message: string; retryable: boolean }
-  | { type: 'ended' }
-  | ({ type: 'summary' } & SessionSummary)
-
-export type ClientMessage =
-  | { type: 'start'; mode: ModeId; pace: PaceId }
-  | { type: 'stop' }
-
-export const FRAME_HEADER_BYTES = 16
+export interface LiveMetrics {
+  br: Reading | null
+  pulse: Reading | null
+  hrv: Reading | null
+  expression: ExpressionReading | null
+  talking: boolean
+  blinksPerMin: number | null
+  face: FaceBox | null
+  trace: Array<[number, number]>
+}

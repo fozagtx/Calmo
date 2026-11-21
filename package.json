@@ -5,8 +5,11 @@
   "description": "Camera-based breathing and expression feedback with conversational coaching for exams, interviews and public speaking.",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build:web": "vite build",
     "preview": "vite preview",
+    "build:electron": "esbuild electron/main.ts --bundle --platform=node --format=cjs --target=node22 --outfile=dist-electron/main.cjs --external:electron --external:@smartspectra/node-sdk --log-level=warning && esbuild electron/preload.ts --bundle --platform=node --format=cjs --target=node22 --outfile=dist-electron/preload.cjs --external:electron --log-level=warning",
+    "dev:mac": "npm run build:electron && node scripts/dev-mac.ts",
+    "build:mac": "npm run build:web && npm run build:electron && electron-builder --mac --arm64",
     "check": "tsc --noEmit"
   },
   "dependencies": {
@@ -15,8 +18,7 @@
     "@smartspectra/node-sdk": "^3.5.0",
     "@tanstack/react-query": "^5.108.2",
     "@tanstack/react-router": "^1.170.46",
-    "@tanstack/react-router-ssr-query": "^1.167.3",
-    "@tanstack/react-start": "^1.169.7",
+    "protobufjs": "^7.6.6",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "ws": "^8.18.3",
@@ -27,14 +29,66 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.5",
+    "@tanstack/router-plugin": "^1.169.0",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.3.0",
+    "electron": "^43.8.1",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.27.7",
     "tailwindcss": "^4.3.5",
     "typescript": "^7.0.2",
     "vite": "^8.3.8"
   },
-  "type": "module"
+  "type": "module",
+  "main": "dist-electron/main.cjs",
+  "productName": "Calmo",
+  "build": {
+    "appId": "app.calmo.desktop",
+    "productName": "Calmo",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "package.json",
+      "node_modules/**",
+      "!node_modules/@smartspectra/node-sdk-*/**",
+      "!node_modules/@smartspectra/node-sdk/scripts/**",
+      "!node_modules/@smartspectra/node-sdk/test/**",
+      "!node_modules/@smartspectra/node-sdk/samples/**",
+      "!node_modules/@smartspectra/node-sdk/prebuilds/**"
+    ],
+    "mac": {
+      "category": "public.app-category.healthcare-fitness",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSCameraUsageDescription": "Calmo uses your camera to read breathing, pulse and expression on this Mac. Video never leaves your computer."
+      },
+      "extraResources": [
+        {
+          "from": "node_modules/@smartspectra/node-sdk-darwin-${arch}/",
+          "to": "smartspectra"
+        }
+      ]
+    },
+    "asar": true,
+    "afterPack": "build/after-pack.cjs"
+  },
+  "author": "fozagtx"
 }

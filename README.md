@@ -1,54 +1,57 @@
 # Calmo
 
-<img src="public/icons/icon-192.png" alt="Calmo" width="72" align="right">
+<img src="build/icon.png" alt="Calmo" width="72" align="right">
 
 Fix your emotional stress before it ruins your day. Calmo reads your breathing, pulse and expression through your webcam, shows when you are anxious or tense, and coaches you back to calm before an exam, interview or talk.
 
+Calmo runs two ways from one codebase: a **Mac app** and a **local web app**.
+
 ## What is it?
 
-Calmo is a TanStack Start web app with four parts:
+Calmo has five parts:
 
-1. **Camera stage.** A round live camera with a breathing ring around it. The ring grows and shrinks with your chosen breathing guide. Required.
-2. **Vitals reader.** The SmartSpectra SDK measures breathing rate, pulse, HRV, facial expression, blinks and face position from the video, on your computer. Required.
-3. **State ring.** Calmo combines those readings into a state (Anxious, Angry, Stressed, Tense, Settling, Calm) and colours the ring and face box to match, from red to green. Required.
-4. **Coach.** An OpenServ model reads your live numbers, tells you what to do right now, and checks in after the session. Optional. Without `SERV_API_KEY` the session runs and the chat stays off.
+1. **Onboarding.** Three animated screens on first launch of the Mac app: what uncontrolled stress costs you, how Calmo reads you, and how you breathe back to calm.
+2. **Camera stage.** A round live camera with a breathing ring around it. The ring grows and shrinks with your breathing guide. Required.
+3. **Vitals reader.** The SmartSpectra SDK measures breathing rate, pulse, HRV, facial expression, blinks and face position from the video on your computer. Required.
+4. **State ring.** Calmo combines those readings into a state (Anxious, Angry, Stressed, Tense, Settling, Calm) and colours the ring and face box to match, from red to green. Required.
+5. **Coach.** An OpenServ model reads your live numbers, tells you what to do right now, and checks in after the session. Optional. You pick the model from a dropdown in Settings.
 
 You stay in charge. The coach only sees numbers and what you type, never your video.
 
 ## How it works
 
 ```text
-                    YOUR WEBCAM
-                         |
-                         v
-        +----------------------------------+
-        |  Browser (React, TanStack Query) |
-        |  round camera + breathing ring   |
-        +----------------------------------+
-             |  RGBA frames over          ^  readings, face box,
-             |  WebSocket /vitals         |  validation hints
-             v                            |
-        +----------------------------------+
-        |  SmartSpectra SDK (Node, native) |
-        |  breathing, pulse, HRV, face     |
-        +----------------------------------+
-                         |
-                         v
-        +----------------------------------+
-        |  State ring                      |
-        |  Anxious -> Tense -> Settling    |
-        |  -> Calm  (holds 3s to switch)   |
-        +----------------------------------+
-                         |
-         you type  ------+------  session ends
-                         v
-        +----------------------------------+
-        |  askCoach server function        |
-        |  OpenServ /v1/chat/completions   |
-        +----------------------------------+
-                         |
-                         v
-          one thing to do now, then a check-in
+                       YOUR WEBCAM
+                            |
+          +-----------------+-----------------+
+          |                                   |
+     MAC APP (Electron)                LOCAL WEB APP (browser)
+     SDK renderer + IPC               frames over localhost
+     in the same app                  WebSocket /vitals
+          |                                   |
+          +-----------------+-----------------+
+                            v
+          +----------------------------------+
+          |  SmartSpectra SDK (Node, native) |
+          |  breathing, pulse, HRV, face     |
+          +----------------------------------+
+                            |
+                            v
+          +----------------------------------+
+          |  State ring                      |
+          |  Anxious -> Tense -> Settling    |
+          |  -> Calm  (holds 3s to switch)   |
+          +----------------------------------+
+                            |
+            you type  ------+------  session ends
+                            v
+          +----------------------------------+
+          |  Coach (TanStack Query mutation) |
+          |  OpenServ /v1/chat/completions   |
+          +----------------------------------+
+                            |
+                            v
+             one thing to do now, then a check-in
 ```
 
 Pulse appears after about 12 seconds, breathing after about 30 and HRV after about 60. A state must hold for 3 seconds before the ring changes, so it does not flicker. If the SDK loses its connection to Presage, Calmo reconnects up to 3 times and keeps your readings.
@@ -56,10 +59,9 @@ Pulse appears after about 12 seconds, breathing after about 30 and HRV after abo
 ## Why use it?
 
 - No wearable. A normal webcam in decent light is enough.
-- You see your state change, from Anxious to Calm, while you breathe.
+- You watch your state change from Anxious to Calm while you breathe.
 - The coach answers with your real numbers, not generic tips.
-- Video stays on your computer.
-- It installs as an app (PWA).
+- Video stays on your computer. SDK telemetry is turned off.
 
 Results depend on lighting, camera quality, how still you sit and how long you breathe with the guide. Calmo gives general wellness feedback. It is not a medical device.
 
@@ -69,46 +71,56 @@ Results depend on lighting, camera quality, how still you sit and how long you b
 git clone https://github.com/fozagtx/Calmo.git
 cd Calmo
 npm install
-cp .env.example .env
+node node_modules/electron/install.js
 ```
 
-Requires Node 22.9 or newer on macOS Apple Silicon, Linux x64/arm64 or Windows x64. `npm install` pulls the SmartSpectra native runtime for every platform, a few hundred MB.
+Requires Node 22.9 or newer. The Mac app needs an Apple Silicon Mac. The SmartSpectra runtime supports macOS arm64, Linux x64/arm64 and Windows x64. `npm install` pulls the runtime for every platform, a few hundred MB.
 
 ## Quick start
 
-Full setup, with vitals and coach:
+### Mac app
 
-```text
-SMARTSPECTRA_API_KEY=your_presage_key
-SERV_API_KEY=your_openserv_key
-```
+Download `Calmo-0.1.0-arm64.dmg` from [Releases](https://github.com/fozagtx/Calmo/releases), or build it yourself:
 
 ```bash
+npm run build:mac
+open release/Calmo-0.1.0-arm64.dmg
+```
+
+Drag Calmo into Applications. The build is not notarized yet, so the first time, right-click Calmo and choose Open. Then:
+
+1. Go through the three welcome screens.
+2. Open **Settings**, paste your SmartSpectra key (and an OpenServ key for the coach), and pick a coach model.
+3. Click **Start session** and allow the camera when macOS asks.
+
+Run the Mac app from source with live reload:
+
+```bash
+npm run dev:mac
+```
+
+In this mode the app also reads keys from `.env`.
+
+### Web app (local)
+
+```bash
+cp .env.example .env
 npm run dev
 ```
 
 Open http://127.0.0.1:5173, click **Start a session**, pick Exam, Interview or Speech and a breathing guide, then allow the camera.
 
-Vitals only, coach off: leave `SERV_API_KEY` empty. The session, ring and summary all work, and the chat says the coach is off.
-
-Production build:
-
-```bash
-npm run build
-npm run preview
-```
+Vitals only: leave `SERV_API_KEY` empty. The session, ring and summary all work, and the chat says the coach is off.
 
 ## Configuration
 
-`.env` in the project root. Values here override the same variables in your shell.
+| Setting | Mac app | Web app |
+| --- | --- | --- |
+| SmartSpectra key (required) | Settings, encrypted with your login keychain | `SMARTSPECTRA_API_KEY` in `.env` |
+| OpenServ key (optional) | Settings, encrypted with your login keychain | `SERV_API_KEY` in `.env` |
+| Coach model | Settings dropdown | Settings dropdown (saved in the browser) or `SERV_MODEL` |
 
-```text
-SMARTSPECTRA_API_KEY   required   https://physiology.presagetech.com
-SERV_API_KEY           optional   https://console.openserv.ai/settings/keys
-SERV_MODEL             optional   defaults to gpt-5.4-mini
-```
-
-Never paste keys into chat or commit `.env`. It is in `.gitignore`.
+Get keys at https://physiology.presagetech.com and https://console.openserv.ai/settings/keys. The model dropdown lists the models on your OpenServ account and needs a valid key to load. Never paste keys into chat or commit `.env`.
 
 Breathing guides:
 
@@ -121,32 +133,37 @@ For a good reading, face a window or lamp, keep your face and upper chest in vie
 ## Useful commands
 
 ```text
-npm run dev        dev server with the /vitals socket
-npm run build      production build
-npm run preview    serve the build with the /vitals socket
-npm run check      TypeScript strict type check
+npm run dev          web app with the /vitals relay and /api routes
+npm run dev:mac      Mac app from source against the Vite dev server
+npm run build:mac    build release/Calmo-0.1.0-arm64.dmg
+npm run build:web    static web bundle in dist/
+npm run preview      serve the web bundle with the relay
+npm run check        TypeScript strict type check
 ```
 
 ## Important limits
 
-- One session at a time per machine. The SmartSpectra SDK is process-wide, so a second tab is refused.
-- The camera needs a secure context. `localhost` and `127.0.0.1` work. Other devices need HTTPS.
-- Hiding the tab ends the session, because browsers stop sending camera frames in the background.
+- One session at a time per machine. The SmartSpectra SDK is process-wide.
+- The web app is for local use. It streams raw frames over localhost, which does not work over the internet, and the camera needs `localhost` or HTTPS.
+- The Mac build is ad-hoc signed, not notarized. macOS asks you to confirm the first open. Public distribution needs an Apple Developer ID.
 - The state ring is an estimate from expression, breathing and pulse. It is not a diagnosis.
 - The coach receives breathing, pulse, HRV, expression label, blink rate, state and your message. It never receives video or images.
-- The coach gives wellness guidance only. It does not diagnose or treat anything.
 
 ## Project layout
 
 ```text
-src/routes/index.tsx          landing page
+electron/main.ts              window, camera permission, keys, coach IPC
+electron/preload.ts           SmartSpectra bridge plus window.calmo
+electron/keys.ts              keychain-encrypted key storage
+server/web-plugin.ts          /api/config, /api/models, /api/coach for the web app
+server/vitals-relay.ts        Node SDK behind WebSocket /vitals for the web app
+server/coach.ts               OpenServ calls, shared by Mac and web
+src/routes/welcome.tsx        onboarding (three screens)
 src/routes/session.tsx        live session, summary, check-in
+src/routes/settings.tsx       keys and model dropdown
+src/hooks/useVitalsSession    session state, mood tracking, reconnects
+src/lib/vitals-source.ts      Mac SDK or web relay behind one interface
 src/components/CameraStage    round camera, breathing ring, face box
-src/hooks/useVitalsSession    camera, frames, readings, state tracking
-src/server/vitals-socket.ts   SmartSpectra SDK over WebSocket /vitals
-src/server/coach.ts           getCoachConfig, askCoach (OpenServ)
-src/lib/mood.ts               state rules
-public/                       manifest, service worker, icons
 ```
 
 ## Development

@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useServerFn } from '@tanstack/react-start'
 import { Brand } from '../components/BrandMark'
 import { CameraStage } from '../components/CameraStage'
 import { BreathTrace, MetricTiles } from '../components/Readouts'
-import { CoachPanel, chatEntry, coachConfigQuery, type ChatEntry } from '../components/CoachPanel'
+import { CoachPanel, chatEntry, configQuery, type ChatEntry } from '../components/CoachPanel'
 import { useVitalsSession, type Summary } from '../hooks/useVitalsSession'
 import { MODES, PACES } from '../lib/paces'
 import { MOODS } from '../lib/mood'
 import type { ModeId, PaceId } from '../lib/protocol'
-import { getCoachConfig, type CoachReadings } from '../server/coach'
+import type { CoachReadings } from '../lib/coach-types'
+import { isDesktop } from '../lib/vitals-source'
 
 export const Route = createFileRoute('/session')({
-  ssr: false,
   component: SessionPage,
 })
 
@@ -42,8 +41,7 @@ function fmtSpan(span: Summary['pulse'], unit: string, digits: number) {
 
 function SessionPage() {
   const session = useVitalsSession()
-  const fetchConfig = useServerFn(getCoachConfig)
-  const config = useQuery({ ...coachConfigQuery, queryFn: () => fetchConfig() })
+  const config = useQuery(configQuery)
   const [mode, setMode] = useState<ModeId>('exam')
   const [paceId, setPaceId] = useState<PaceId>('steady')
   const [chat, setChat] = useState<ChatEntry[]>([])
@@ -110,6 +108,13 @@ function SessionPage() {
     <div className="min-h-dvh bg-white">
       <header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
         <Brand />
+        <div className="flex items-center gap-3">
+        <Link
+          to="/settings"
+          className="rounded-xl border border-line px-3.5 py-2 text-[14px] font-semibold text-ink transition hover:border-ink"
+        >
+          Settings
+        </Link>
         <span
           className={`rounded-full px-3 py-1.5 text-[13px] font-semibold ${
             session.status === 'Running'
@@ -123,6 +128,7 @@ function SessionPage() {
         >
           {session.status === 'Running' ? 'Live' : session.status}
         </span>
+        </div>
       </header>
 
       {session.error && (
@@ -245,7 +251,19 @@ function SessionPage() {
                 Start session
               </button>
               {vitalsMissing && (
-                <p className="mt-3 text-[13px] text-red-ink">Add SMARTSPECTRA_API_KEY to the .env file and restart Calmo.</p>
+                <p className="mt-3 text-[13px] text-red-ink">
+                  {isDesktop() ? (
+                    <>
+                      Add your SmartSpectra key in{' '}
+                      <Link to="/settings" className="font-semibold underline">
+                        Settings
+                      </Link>{' '}
+                      to start.
+                    </>
+                  ) : (
+                    'Add SMARTSPECTRA_API_KEY to the .env file and restart npm run dev.'
+                  )}
+                </p>
               )}
             </section>
           )}

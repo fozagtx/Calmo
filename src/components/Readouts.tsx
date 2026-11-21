@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import type { Reading } from '../lib/protocol'
-import type { LiveMetrics } from '../hooks/useVitalsSession'
+import type { LiveMetrics } from '../lib/protocol'
 
 const TRACE_WINDOW_MS = 20000
 

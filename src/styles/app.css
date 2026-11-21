@@ -43,3 +43,78 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .calmo-breathe { animation: none; transform: scale(0.8); }
 }
+
+@keyframes calmo-scene-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.calmo-scene { animation: calmo-scene-in 600ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes calmo-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.calmo-rise { opacity: 0; animation: calmo-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+@keyframes calmo-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.calmo-fade-in { animation: calmo-fade-in 700ms ease both; }
+
+@keyframes calmo-heartbeat {
+  0%, 40%, 100% { transform: scale(1); }
+  10% { transform: scale(1.1); }
+  20% { transform: scale(0.97); }
+  30% { transform: scale(1.06); }
+}
+.calmo-heartbeat { animation: calmo-heartbeat 0.8s ease-in-out infinite; }
+
+@keyframes calmo-ripple {
+  from { transform: scale(0.7); opacity: 0.7; }
+  to { transform: scale(1.25); opacity: 0; }
+}
+.calmo-ripple { animation: calmo-ripple 1.6s ease-out infinite; }
+.calmo-ripple-late { animation-delay: 0.8s; }
+
+@keyframes calmo-trace {
+  from { stroke-dashoffset: 260; }
+  to { stroke-dashoffset: 0; }
+}
+.calmo-trace { stroke-dasharray: 260; animation: calmo-trace 1.2s linear infinite; }
+
+@keyframes calmo-state-border {
+  0%, 22% { border-color: #F04438; }
+  25%, 47% { border-color: #F79009; }
+  50%, 72% { border-color: #2E90FA; }
+  75%, 97% { border-color: #12B76A; }
+  100% { border-color: #F04438; }
+}
+.calmo-ring-cycle, .calmo-box-cycle { animation: calmo-state-border 12s ease-in-out infinite; }
+
+@keyframes calmo-state-label {
+  0%, 24.9% { background: #F04438; content: "Anxious"; }
+  25%, 49.9% { background: #F79009; content: "Tense"; }
+  50%, 74.9% { background: #2E90FA; content: "Settling"; }
+  75%, 100% { background: #12B76A; content: "Calm"; }
+}
+.calmo-label-cycle::after { content: "Anxious"; animation: calmo-state-label 12s step-end infinite; }
+.calmo-label-cycle { animation: calmo-state-chip 12s step-end infinite; }
+@keyframes calmo-state-chip {
+  0%, 24.9% { background: #F04438; }
+  25%, 49.9% { background: #F79009; }
+  50%, 74.9% { background: #2E90FA; }
+  75%, 100% { background: #12B76A; }
+}
+
+@keyframes calmo-scan {
+  0%, 100% { top: 18%; opacity: 0; }
+  10%, 90% { opacity: 0.8; }
+  50% { top: 76%; }
+}
+.calmo-scan { animation: calmo-scan 3s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .calmo-scene, .calmo-rise, .calmo-fade-in { animation: none; opacity: 1; }
+  .calmo-heartbeat, .calmo-ripple, .calmo-trace, .calmo-scan { animation: none; }
+}

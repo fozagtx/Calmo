@@ -1,18 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FRAME_HEADER_BYTES } from '../lib/protocol'
-import type { FaceBox, ModeId, PaceId, ServerMessage, SessionSummary } from '../lib/protocol'
-import { MOODS, UPSET, rawMood, type MoodId } from '../lib/mood'
+import {
+  ProcessingStatus,
+  SmartSpectraErrorCode,
+  ValidationCode,
+  breathingMetrics,
+  cardioMetrics,
+  faceMetrics,
+} from '@smartspectra/node-sdk/renderer'
+import { decodeMetrics } from '@smartspectra/node-sdk/messages'
+import type { FaceBox, LiveMetrics, ModeId, PaceId, SessionSummary } from '../lib/protocol'
+import { UPSET, rawMood, type MoodId } from '../lib/mood'
 import { PACES } from '../lib/paces'
+import { VitalsTracker, type DecodedMetrics } from '../lib/vitals'
+import { calmo } from '../lib/bridge'
+import { createVitalsSource, isDesktop, type VitalsSource } from '../lib/vitals-source'
 
-const FRAME_WIDTH = 960
-const MAX_BUFFERED = 6 * 1024 * 1024
 const TRACE_WINDOW_MS = 20000
 const MOOD_HOLD_MS = 3000
 const RENDER_EVERY_MS = 250
+const MAX_RECONNECTS = 3
 
 export type Phase = 'idle' | 'connecting' | 'live' | 'stopping' | 'summary'
-
-export type LiveMetrics = Extract<ServerMessage, { type: 'metrics' }>
 
 export interface Validation {
   ok: boolean
@@ -35,15 +43,18 @@ export interface Summary extends SessionSummary {
   moodLast: MoodId | null
 }
 
+const invert = (obj: Record<string, number>): Record<number, string> =>
+  Object.fromEntries(Object.entries(obj).map(([k, v]) => [v, k.replace(/^k/, '')]))
+
+const STATUS_NAMES = invert(ProcessingStatus as unknown as Record<string, number>)
+const ERROR_NAMES = invert(SmartSpectraErrorCode as unknown as Record<string, number>)
+
 export function useVitalsSession() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const wsRef = useRef<WebSocket | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const runningRef = useRef(false)
-  const frameHandleRef = useRef(0)
+  const sdkRef = useRef<VitalsSource | null>(null)
+  const trackerRef = useRef<VitalsTracker | null>(null)
   const traceRef = useRef<Array<[number, number]>>([])
   const faceRef = useRef<{ box: FaceBox; at: number } | null>(null)
-  const latestRef = useRef<LiveMetrics | null>(null)
   const moodRef = useRef<{ first: MoodId | null; now: MoodId; candidate: MoodId; since: number }>({
     first: null,
     now: 'reading',
@@ -53,6 +64,9 @@ export function useVitalsSession() {
   const pulseBaseRef = useRef<number | null>(null)
   const paceRef = useRef<PaceId>('steady')
   const lastRenderRef = useRef(0)
+  const reconnectsRef = useRef(0)
+  const retryableRef = useRef(false)
+  const stoppingRef = useRef(false)
 
   const [phase, setPhase] = useState<Phase>('idle')
   const [status, setStatus] = useState('Ready')
@@ -63,16 +77,6 @@ export function useVitalsSession() {
   const [mood, setMood] = useState<MoodTrack>({ first: null, now: 'reading' })
   const [flipped, setFlipped] = useState<MoodId | null>(null)
   const [startedAt, setStartedAt] = useState(0)
-
-  const releaseCamera = useCallback(() => {
-    runningRef.current = false
-    const video = videoRef.current
-    if (video && frameHandleRef.current) video.cancelVideoFrameCallback(frameHandleRef.current)
-    frameHandleRef.current = 0
-    streamRef.current?.getTracks().forEach((t) => t.stop())
-    streamRef.current = null
-    if (video) video.srcObject = null
-  }, [])
 
   const updateMood = useCallback((m: LiveMetrics) => {
     if (pulseBaseRef.current == null && m.pulse?.s) pulseBaseRef.current = m.pulse.v
@@ -97,127 +101,50 @@ export function useVitalsSession() {
     if (next === 'calm' && wasFirst && UPSET.has(wasFirst)) setFlipped(wasFirst)
   }, [])
 
-  const handleMessage = useCallback(
-    (msg: ServerMessage) => {
-      switch (msg.type) {
-        case 'started':
-          setPhase('live')
-          setStartedAt(Date.now())
-          pumpFrames()
-          break
-        case 'status':
-          setStatus(msg.status)
-          break
-        case 'validation':
-          setValidation({ ok: msg.ok, tuning: msg.tuning, hint: msg.hint })
-          break
-        case 'metrics': {
-          latestRef.current = msg
-          if (msg.face) faceRef.current = { box: msg.face, at: performance.now() }
-          const trace = traceRef.current
-          for (const point of msg.trace) trace.push(point)
-          const newest = trace.length ? trace[trace.length - 1][0] : 0
-          while (trace.length && newest - trace[0][0] > TRACE_WINDOW_MS) trace.shift()
-          updateMood(msg)
-          const now = performance.now()
-          if (now - lastRenderRef.current > RENDER_EVERY_MS) {
-            lastRenderRef.current = now
-            setMetrics(msg)
-          }
-          break
-        }
-        case 'error':
-          setError({ code: msg.code, message: msg.message })
-          break
-        case 'ended':
-          releaseCamera()
-          setPhase('idle')
-          setStatus('Error')
-          break
-        case 'summary': {
-          const { type: _type, ...rest } = msg
-          setSummary({ ...rest, moodFirst: moodRef.current.first, moodLast: moodRef.current.now === 'reading' ? null : moodRef.current.now })
-          setPhase('summary')
-          setStatus('Ready')
-          break
-        }
+  const teardown = useCallback(async () => {
+    const sdk = sdkRef.current
+    sdkRef.current = null
+    if (!sdk) return
+    try {
+      await sdk.stop()
+    } catch {
+      return
+    } finally {
+      try {
+        sdk.destroy()
+      } catch {
+        sdkRef.current = null
       }
-    },
-    [releaseCamera, updateMood],
-  )
-
-  function pumpFrames() {
-    const video = videoRef.current
-    const ws = wsRef.current
-    if (!video || !ws) return
-    runningRef.current = true
-    const width = Math.min(FRAME_WIDTH, video.videoWidth)
-    const height = Math.round((width * video.videoHeight) / video.videoWidth / 2) * 2
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })
-    if (!ctx) return
-    let lastTs = 0
-    const tick = (now: number) => {
-      if (!runningRef.current) return
-      const socket = wsRef.current
-      if (socket && socket.readyState === WebSocket.OPEN && socket.bufferedAmount < MAX_BUFFERED) {
-        const ts = Math.round((performance.timeOrigin + now) * 1000)
-        if (ts > lastTs) {
-          lastTs = ts
-          ctx.drawImage(video, 0, 0, width, height)
-          const pixels = ctx.getImageData(0, 0, width, height).data
-          const packet = new Uint8Array(FRAME_HEADER_BYTES + pixels.length)
-          const view = new DataView(packet.buffer)
-          view.setFloat64(0, ts, true)
-          view.setUint32(8, width, true)
-          view.setUint32(12, height, true)
-          packet.set(pixels, FRAME_HEADER_BYTES)
-          socket.send(packet.buffer)
-        }
-      }
-      frameHandleRef.current = video.requestVideoFrameCallback(tick)
+      const video = videoRef.current
+      if (video) video.srcObject = null
     }
-    frameHandleRef.current = video.requestVideoFrameCallback(tick)
-  }
+  }, [])
 
-  const connect = useCallback(
-    () =>
-      new Promise<WebSocket>((resolve, reject) => {
-        const existing = wsRef.current
-        if (existing && existing.readyState === WebSocket.OPEN) {
-          resolve(existing)
-          return
-        }
-        const scheme = location.protocol === 'https:' ? 'wss' : 'ws'
-        const ws = new WebSocket(`${scheme}://${location.host}/vitals`)
-        ws.binaryType = 'arraybuffer'
-        ws.onopen = () => resolve(ws)
-        ws.onerror = () => reject(new Error('Could not reach the Calmo vitals stream. Is the app running?'))
-        ws.onmessage = (event) => {
-          if (typeof event.data !== 'string') return
-          try {
-            handleMessage(JSON.parse(event.data) as ServerMessage)
-          } catch {
-            return
-          }
-        }
-        ws.onclose = () => {
-          wsRef.current = null
-          if (runningRef.current) {
-            releaseCamera()
-            setError({ code: 'Disconnected', message: 'The connection to Calmo closed.' })
-            setPhase('idle')
-          }
-        }
-        wsRef.current = ws
-      }),
-    [handleMessage, releaseCamera],
-  )
+  const endWithError = useCallback(async () => {
+    await teardown()
+    setPhase('idle')
+    setStatus('Error')
+  }, [teardown])
+
+  const reconnect = useCallback(async (sdk: VitalsSource) => {
+    reconnectsRef.current += 1
+    retryableRef.current = false
+    setStatus('Reconnecting')
+    await new Promise((r) => setTimeout(r, 1500 * reconnectsRef.current))
+    if (sdkRef.current !== sdk || stoppingRef.current) return
+    try {
+      await sdk.reset()
+      await sdk.start()
+    } catch (err) {
+      const e = err as { code?: number; message?: string }
+      setError({ code: ERROR_NAMES[e.code ?? -1] ?? 'Error', message: e.message ?? 'Calmo could not reconnect.' })
+      await endWithError()
+    }
+  }, [endWithError])
 
   const start = useCallback(
     async (mode: ModeId, pace: PaceId) => {
+      void mode
       setError(null)
       setSummary(null)
       setFlipped(null)
@@ -225,80 +152,143 @@ export function useVitalsSession() {
       setMetrics(null)
       traceRef.current = []
       faceRef.current = null
-      latestRef.current = null
       pulseBaseRef.current = null
+      reconnectsRef.current = 0
+      retryableRef.current = false
+      stoppingRef.current = false
       moodRef.current = { first: null, now: 'reading', candidate: 'reading', since: 0 }
       setMood({ first: null, now: 'reading' })
       paceRef.current = pace
+      trackerRef.current = new VitalsTracker(PACES[pace].perMin)
       setPhase('connecting')
-      setStatus('Connecting')
+      setStatus('Starting')
+
+      let apiKey = ''
       try {
-        streamRef.current = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, min: 24 } },
-        })
-      } catch {
-        setError({ code: 'Camera', message: 'Calmo needs camera access to read your breathing. Allow it in your browser settings and try again.' })
-        setPhase('idle')
-        setStatus('Ready')
-        return
-      }
-      const video = videoRef.current
-      if (!video) return
-      video.srcObject = streamRef.current
-      try {
-        await video.play()
-      } catch {
-        return
-      }
-      if (!video.videoWidth) await new Promise((r) => video.addEventListener('loadedmetadata', r, { once: true }))
-      try {
-        const ws = await connect()
-        ws.send(JSON.stringify({ type: 'start', mode, pace }))
-        setStatus('Starting')
+        if (isDesktop()) apiKey = await calmo.smartspectraKey()
+        else if ((await calmo.config()).vitalsReady) apiKey = 'server'
       } catch (err) {
-        releaseCamera()
         setError({ code: 'Connection', message: (err as Error).message })
+      }
+      if (!apiKey) {
+        setError((prev) =>
+          prev ?? {
+            code: 'No key',
+            message: isDesktop() ? 'Add your SmartSpectra key in Settings first.' : 'Add SMARTSPECTRA_API_KEY to the .env file and restart npm run dev.',
+          },
+        )
         setPhase('idle')
         setStatus('Ready')
+        return
+      }
+
+      const sdk = createVitalsSource({
+        apiKey,
+        requestedMetrics: [...breathingMetrics, ...cardioMetrics, ...faceMetrics],
+      })
+      sdkRef.current = sdk
+
+      sdk.on('streamAvailable', (stream: MediaStream) => {
+        const video = videoRef.current
+        if (!video) return
+        video.srcObject = stream
+        void video.play().catch(() => undefined)
+      })
+      sdk.on('processingStatus', (code: number) => {
+        if (sdkRef.current !== sdk) return
+        const name = STATUS_NAMES[code] ?? String(code)
+        if (code === ProcessingStatus.kRunning) {
+          retryableRef.current = false
+          setPhase('live')
+          setStatus('Running')
+          setStartedAt((prev) => prev || Date.now())
+          return
+        }
+        if (code === ProcessingStatus.kError) {
+          if (retryableRef.current && reconnectsRef.current < MAX_RECONNECTS) void reconnect(sdk)
+          else void endWithError()
+          return
+        }
+        if (!stoppingRef.current) setStatus(name)
+      })
+      sdk.on('validationStatus', (code: number, _ts: number, hint: string) => {
+        setValidation({ ok: code === ValidationCode.kOk, tuning: code === ValidationCode.kCameraTuning, hint: hint || '' })
+      })
+      sdk.on('metrics', (buf: Uint8Array) => {
+        const tracker = trackerRef.current
+        const video = videoRef.current
+        if (!tracker) return
+        let decoded: DecodedMetrics
+        try {
+          decoded = decodeMetrics(buf) as unknown as DecodedMetrics
+        } catch {
+          return
+        }
+        const live = tracker.ingest(decoded, video?.videoWidth ?? 0, video?.videoHeight ?? 0)
+        if (live.face) faceRef.current = { box: live.face, at: performance.now() }
+        const trace = traceRef.current
+        for (const point of live.trace) trace.push(point)
+        const newest = trace.length ? trace[trace.length - 1][0] : 0
+        while (trace.length && newest - trace[0][0] > TRACE_WINDOW_MS) trace.shift()
+        updateMood(live)
+        const now = performance.now()
+        if (now - lastRenderRef.current > RENDER_EVERY_MS) {
+          lastRenderRef.current = now
+          setMetrics(live)
+        }
+      })
+      sdk.on('error', (code: number, message: string, retryable: boolean) => {
+        if (sdkRef.current !== sdk) return
+        if (retryable && reconnectsRef.current < MAX_RECONNECTS) {
+          retryableRef.current = true
+          return
+        }
+        if (code === SmartSpectraErrorCode.kInvalidState && retryableRef.current) return
+        setError({ code: ERROR_NAMES[code] ?? String(code), message })
+      })
+
+      setStartedAt(0)
+      try {
+        await sdk.start()
+      } catch (err) {
+        const e = err as { code?: number | string; message?: string }
+        const code = typeof e.code === 'number' ? ERROR_NAMES[e.code] ?? String(e.code) : e.code ?? 'Error'
+        const message =
+          (e.message ?? '').toLowerCase().includes('permission') || (e.message ?? '').toLowerCase().includes('notallowed')
+            ? 'Calmo needs camera access. Allow it in System Settings, Privacy and Security, Camera.'
+            : e.message ?? 'Calmo could not start.'
+        setError({ code, message })
+        await endWithError()
       }
     },
-    [connect, releaseCamera],
+    [endWithError, reconnect, updateMood],
   )
 
-  const stop = useCallback(() => {
-    const ws = wsRef.current
-    const wasRunning = runningRef.current
-    releaseCamera()
-    if (ws && ws.readyState === WebSocket.OPEN && wasRunning) {
-      setPhase('stopping')
-      setStatus('Stopping')
-      ws.send(JSON.stringify({ type: 'stop' }))
+  const stop = useCallback(async () => {
+    stoppingRef.current = true
+    const tracker = trackerRef.current
+    setPhase('stopping')
+    setStatus('Stopping')
+    await teardown()
+    if (tracker) {
+      setSummary({
+        ...tracker.summary(),
+        moodFirst: moodRef.current.first,
+        moodLast: moodRef.current.now === 'reading' ? null : moodRef.current.now,
+      })
+      setPhase('summary')
     } else {
       setPhase('idle')
-      setStatus('Ready')
     }
-  }, [releaseCamera])
+    setStatus('Ready')
+  }, [teardown])
 
   const reset = useCallback(() => {
     setSummary(null)
     setPhase('idle')
   }, [])
 
-  useEffect(() => {
-    const onHidden = () => {
-      if (document.hidden && runningRef.current) {
-        stop()
-        setError({ code: 'Paused', message: 'Calmo ended the session because the tab was hidden. The camera stops sending frames in the background.' })
-      }
-    }
-    document.addEventListener('visibilitychange', onHidden)
-    return () => {
-      document.removeEventListener('visibilitychange', onHidden)
-      releaseCamera()
-      wsRef.current?.close()
-    }
-  }, [stop, releaseCamera])
+  useEffect(() => () => void teardown(), [teardown])
 
   return {
     videoRef,
@@ -317,6 +307,5 @@ export function useVitalsSession() {
     stop,
     reset,
     clearError: () => setError(null),
-    moodLabel: (id: MoodId | null) => (id ? MOODS[id].label : null),
   }
 }

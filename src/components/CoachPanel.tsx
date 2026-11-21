@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useServerFn } from '@tanstack/react-start'
-import { askCoach, getCoachConfig, type CoachReadings, type CoachTurn } from '../server/coach'
+import { Link } from '@tanstack/react-router'
+import { calmo } from '../lib/bridge'
+import { isDesktop } from '../lib/vitals-source'
+import type { CoachReadings, CoachTurn } from '../lib/coach-types'
 
 export interface ChatEntry {
   id: number
@@ -25,22 +27,22 @@ interface Props {
 let nextId = 1
 export const chatEntry = (kind: ChatEntry['kind'], text: string, tag?: string): ChatEntry => ({ id: nextId++, kind, text, tag })
 
-export const coachConfigQuery = { queryKey: ['coach-config'], staleTime: Infinity } as const
+export const configQuery = { queryKey: ['calmo-config'], queryFn: () => calmo.config(), staleTime: 5_000 } as const
 
 export function CoachPanel({ title, subtitle, prompts, readings, entries, onEntries, autoAsk, placeholder, compact }: Props) {
-  const ask = useServerFn(askCoach)
-  const fetchConfig = useServerFn(getCoachConfig)
-  const config = useQuery({ ...coachConfigQuery, queryFn: () => fetchConfig() })
+  const config = useQuery(configQuery)
   const [draft, setDraft] = useState('')
   const listRef = useRef<HTMLDivElement | null>(null)
   const autoAskedRef = useRef<string | null>(null)
 
   const mutation = useMutation({
-    mutationFn: (message: string) => {
+    mutationFn: async (message: string) => {
       const history: CoachTurn[] = entries
         .filter((e) => e.kind === 'me' || (e.kind === 'coach' && !e.tag))
         .map((e) => ({ role: e.kind === 'me' ? 'user' : 'assistant', content: e.text }))
-      return ask({ data: { readings: readings(), history, message } })
+      const res = await calmo.askCoach({ readings: readings(), history, message, model: config.data?.model })
+      if (!res.ok) throw new Error(res.error)
+      return res
     },
     onSuccess: (res) => onEntries((prev) => [...prev, chatEntry('coach', res.text)]),
     onError: (err) => onEntries((prev) => [...prev, chatEntry('error', (err as Error).message)]),
@@ -82,7 +84,18 @@ export function CoachPanel({ title, subtitle, prompts, readings, entries, onEntr
       <div ref={listRef} className={`flex flex-1 flex-col gap-2.5 overflow-y-auto px-5 py-4 ${compact ? 'max-h-[360px] min-h-[140px]' : ''}`}>
         {coachOff && (
           <p className="rounded-2xl bg-amber-tint px-4 py-3 text-sm text-ink">
-            The coach is off. Add SERV_API_KEY from console.openserv.ai to the .env file and restart Calmo.
+            The coach is off.{' '}
+            {isDesktop() ? (
+              <>
+                Add your OpenServ key in{' '}
+                <Link to="/settings" className="font-semibold underline">
+                  Settings
+                </Link>
+                .
+              </>
+            ) : (
+              'Add SERV_API_KEY from console.openserv.ai to the .env file and restart npm run dev.'
+            )}
           </p>
         )}
         {entries.map((e) => (

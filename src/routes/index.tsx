@@ -1,7 +1,18 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, redirect } from '@tanstack/react-router'
+import { isDesktop } from '../lib/vitals-source'
 import { Brand } from '../components/BrandMark'
 
 export const Route = createFileRoute('/')({
+  beforeLoad: () => {
+    if (!isDesktop()) return
+    let onboarded = false
+    try {
+      onboarded = localStorage.getItem('calmo.onboarded') === '1'
+    } catch {
+      onboarded = false
+    }
+    throw redirect({ to: onboarded ? '/session' : '/welcome' })
+  },
   component: Landing,
 })
 
