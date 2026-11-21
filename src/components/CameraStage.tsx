@@ -113,6 +113,13 @@ export function CameraStage({ videoRef, faceRef, pace, live, mood, hint }: Props
             className="absolute inset-0 h-full w-full -scale-x-100 rounded-full object-cover"
           />
           <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full rounded-full" />
+          {live && hint && /chest|face|close|far|high|low|center|forward/i.test(hint) && (
+            <svg viewBox="0 0 100 100" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
+              <ellipse cx="50" cy="38" rx="12" ry="15" fill="none" stroke="#FFFFFF" strokeWidth="1" strokeDasharray="3 2.5" />
+              <path d="M18 92 C22 66 36 60 50 60 C64 60 78 66 82 92" fill="none" stroke="#FFFFFF" strokeWidth="1" strokeDasharray="3 2.5" />
+              <text x="50" y="78" textAnchor="middle" fontSize="4.2" fontWeight="600" fill="#FFFFFF">Fit your head and chest here</text>
+            </svg>
+          )}
           {!live && (
             <div className="absolute inset-0 grid place-items-center px-10 text-center text-[15px] text-muted">
               Your camera shows up here when you start.
