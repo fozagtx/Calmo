@@ -28,14 +28,16 @@ export function rawMood({ expression, br, pulse, target, pulseBase }: MoodInputs
   const heart = pulse && pulse.s ? pulse.v : null
   if (expr == null && breathing == null && heart == null) return 'reading'
 
+  const sure = !!expression && expression.conf >= 70
   let score = 0
+  let body = 0
   let anxious = false
   let angry = false
   if (expr === 'fear' || expr === 'surprise') {
-    score += 2
+    score += sure ? 2 : 1
     anxious = true
   } else if (expr === 'angry' || expr === 'contempt' || expr === 'disgust') {
-    score += 2
+    score += sure ? 2 : 1
     angry = true
   } else if (expr === 'sad') {
     score += 1
@@ -44,19 +46,20 @@ export function rawMood({ expression, br, pulse, target, pulseBase }: MoodInputs
   }
 
   if (breathing != null) {
-    if (breathing >= 18) score += 2
-    else if (breathing >= 13) score += 1
-    else if (breathing <= target + 2) score -= 1
+    if (breathing >= 18) body += 2
+    else if (breathing >= 13) body += 1
+    else if (breathing <= target + 2) body -= 1
   }
 
   if (heart != null) {
-    if (heart >= 100) score += 2
-    else if (heart >= 88) score += 1
-    if (pulseBase != null && heart <= pulseBase - 4) score -= 1
+    if (heart >= 100) body += 2
+    else if (heart >= 88) body += 1
+    if (pulseBase != null && heart <= pulseBase - 4) body -= 1
   }
 
-  if (score >= 2) return angry ? 'angry' : anxious ? 'anxious' : 'stressed'
-  if (score === 1) return angry ? 'angry' : anxious ? 'anxious' : 'tense'
+  score += body
+  if (score >= 2 && body > 0) return angry ? 'angry' : anxious ? 'anxious' : 'stressed'
+  if (score >= 1) return 'tense'
   if (score === 0) return 'settling'
   return 'calm'
 }

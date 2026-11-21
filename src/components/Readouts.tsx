@@ -47,7 +47,7 @@ export function MetricTiles({ metrics, startedAt, hint }: { metrics: LiveMetrics
       <Tile
         label="Expression"
         value={showExpr ? expr.label : '--'}
-        note={`Blinks ${blinks == null ? 'counting' : `${blinks}/min`}${metrics?.talking ? ', talking' : ''}`}
+        note={`${showExpr ? `${Math.round(expr.conf)}% sure, ` : ''}blinks ${blinks == null ? 'counting' : `${blinks}/min`}${metrics?.talking ? ', talking' : ''}`}
         soft={!showExpr || !expr.s}
       />
     </div>
