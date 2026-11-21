@@ -42,11 +42,11 @@ Calmo requests three SmartSpectra metric groups: `breathingMetrics`, `cardioMetr
 | Breathing rate | about 30 s | Compared with your chosen guide. On pace, faster or slower than the guide is shown live, and time on pace is reported at the end. |
 | Chest breathing trace | about 30 s | Drawn as a live 20 second waveform so you can see yourself follow the ring. |
 | HRV (RMSSD) | about 60 s | Shown live and compared start to end in the summary. |
-| Expressions | live | Fear or surprise reads as Anxious. Anger, contempt or disgust reads as Angry. Happy counts toward Calm. |
+| Expressions | live | Fear or surprise leans toward Anxious, anger, contempt or disgust toward Angry, happy toward Calm. It counts strongly only when the model is at least 70% sure, and the tile shows that confidence. |
 | Blinking and talking | live | Blink rate per minute and a talking flag, passed to the coach as context. |
 | Face landmarks | live | Turned into a rounded box that tracks your face inside the circular camera, coloured by your state. |
 
-**The state ring.** Calmo scores expression, breathing and pulse together on every metrics packet. A new state must hold for 3 seconds before the ring changes colour, so it does not flicker. The first steady state is remembered. When you reach Calm from Anxious, Angry, Stressed or Tense, Calmo marks the moment: "You went from Anxious to Calm."
+**The state ring.** Calmo scores expression, breathing and pulse together on every metrics packet. The body leads: Anxious, Angry or Stressed needs fast breathing or a raised pulse behind it, so a resting face that the expression model happens to tag as angry shows Tense at most, and slow breathing pulls toward Calm. A new state must hold for 3 seconds before the ring changes colour, so it does not flicker. The first steady state is remembered. When you reach Calm from Anxious, Angry, Stressed or Tense, Calmo marks the moment: "You went from Anxious to Calm."
 
 **Only steady readings count.** Calmo uses each sample's `stable` flag and `confidence`, shows a warm-up countdown until a metric's window fills, and surfaces the SDK's `validationStatus` hint text (for example "No face found") under the camera exactly as the SDK sends it.
 
