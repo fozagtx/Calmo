@@ -83,8 +83,8 @@ interface Step {
 
 const STEPS: Step[] = [
   {
-    eyebrow: 'Before it costs you',
-    title: 'Stress you do not catch takes the whole day.',
+    eyebrow: 'When stress takes over',
+    title: 'It ruins a whole day.',
     accent: 'text-red',
     art: <StressArt />,
     body: (
