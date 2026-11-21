@@ -30,8 +30,12 @@ export type CoachTurn = AskRequest['history'][number]
 export interface AppConfig {
   vitalsReady: boolean
   coachReady: boolean
+  smartspectraHint: string | null
+  servHint: string | null
   model: string
 }
+
+export const keyHint = (key: string): string | null => (key.length >= 8 ? key.slice(-4) : key ? '****' : null)
 
 export interface KeyUpdate {
   smartspectra?: string

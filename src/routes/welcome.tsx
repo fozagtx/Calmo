@@ -1,6 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { BrandMark } from '../components/BrandMark'
+import { usePacer } from '../hooks/usePacer'
+import { PACES, PHASE_TEXT } from '../lib/paces'
 
 export const ONBOARDED_KEY = 'calmo.onboarded'
 
@@ -56,17 +58,16 @@ function ReadArt() {
 }
 
 function CalmArt() {
-  const [phase, setPhase] = useState<'in' | 'out'>('in')
-  useEffect(() => {
-    const id = window.setInterval(() => setPhase((p) => (p === 'in' ? 'out' : 'in')), 5000)
-    return () => window.clearInterval(id)
-  }, [])
+  const ringRef = useRef<HTMLDivElement | null>(null)
+  const pacer = usePacer(PACES.steady, true, (level) => {
+    if (ringRef.current) ringRef.current.style.transform = `scale(${(0.5 + level * 0.5).toFixed(4)})`
+  })
   return (
     <div className="relative grid aspect-square w-full max-w-[340px] place-items-center">
-      <div className="calmo-breathe absolute inset-0 rounded-full bg-green-tint" />
+      <div ref={ringRef} className="absolute inset-0 rounded-full bg-green-tint" style={{ transform: 'scale(0.5)' }} />
       <div className="relative grid aspect-square w-[46%] place-items-center rounded-full bg-green">
-        <span key={phase} className="calmo-fade-in font-display text-[18px] font-semibold text-white">
-          {phase === 'in' ? 'Breathe in' : 'Breathe out'}
+        <span key={pacer.kind} className="calmo-fade-in text-center font-display text-white">
+          <span className="block text-[18px] font-semibold">{PHASE_TEXT[pacer.kind]}</span>
         </span>
       </div>
     </div>

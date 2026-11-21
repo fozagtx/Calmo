@@ -8,10 +8,10 @@ export interface PacerState {
 
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
 
-export function usePacer(pace: Pace, active: boolean, onLevel: (level: number) => void): PacerState {
+export function usePacer(pace: Pace, active: boolean, onFrame: (level: number, progress: number) => void): PacerState {
   const [state, setState] = useState<PacerState>({ kind: pace.phases[0][0], count: pace.phases[0][1] })
-  const levelRef = useRef(onLevel)
-  levelRef.current = onLevel
+  const frameRef = useRef(onFrame)
+  frameRef.current = onFrame
 
   useEffect(() => {
     if (!active) return
@@ -24,9 +24,11 @@ export function usePacer(pace: Pace, active: boolean, onLevel: (level: number) =
     const loop = (now: number) => {
       let t = ((now - origin) / 1000) % cycle
       let level = 0
+      let progress = 0
       for (const [kind, dur] of pace.phases) {
         if (t < dur) {
-          const p = ease(t / dur)
+          progress = t / dur
+          const p = ease(progress)
           if (kind === 'in') level = p
           else if (kind === 'out') level = 1 - p
           const count = Math.ceil(dur - t)
@@ -40,7 +42,7 @@ export function usePacer(pace: Pace, active: boolean, onLevel: (level: number) =
         t -= dur
         level = kind === 'in' ? 1 : kind === 'out' ? 0 : level
       }
-      levelRef.current(reduced ? 0.5 : level)
+      frameRef.current(reduced ? 0.5 : level, progress)
       frame = requestAnimationFrame(loop)
     }
     frame = requestAnimationFrame(loop)

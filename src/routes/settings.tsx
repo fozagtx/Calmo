@@ -10,14 +10,18 @@ export const Route = createFileRoute('/settings')({
   component: Settings,
 })
 
-function Status({ ready, label }: { ready: boolean | undefined; label: string }) {
+function savedPlaceholder(hint: string | null | undefined): string {
+  return hint ? `Saved, ends in ...${hint}. Paste a new key to replace it.` : 'Paste your key'
+}
+
+function Status({ ready, label, hint }: { ready: boolean | undefined; label: string; hint: string | null | undefined }) {
   return (
     <span
       className={`rounded-full px-3 py-1 text-[13px] font-semibold ${
         ready ? 'bg-green-tint text-green-ink' : 'bg-surface text-muted'
       }`}
     >
-      {ready ? `${label} saved` : `${label} missing`}
+      {ready ? `${label} saved${hint ? ` (...${hint})` : ''}` : `${label} missing`}
     </span>
   )
 }
@@ -87,6 +91,7 @@ function Settings() {
   const [serv, setServ] = useState('')
   const desktop = isDesktop()
 
+  const [savedNote, setSavedNote] = useState<string | null>(null)
   const save = useMutation({
     mutationFn: () =>
       calmo.saveKeys({
@@ -95,6 +100,11 @@ function Settings() {
       }),
     onSuccess: (next) => {
       queryClient.setQueryData(configQuery.queryKey, next)
+      const parts = [
+        smartspectra.trim() && next.smartspectraHint ? `SmartSpectra key saved, ends in ...${next.smartspectraHint}` : '',
+        serv.trim() && next.servHint ? `OpenServ key saved, ends in ...${next.servHint}` : '',
+      ].filter(Boolean)
+      setSavedNote(parts.join('. ') + '.')
       setSmartspectra('')
       setServ('')
       void queryClient.invalidateQueries({ queryKey: ['calmo-models'] })
@@ -124,8 +134,8 @@ function Settings() {
       <main className="mx-auto max-w-3xl px-5 pb-16 sm:px-8">
         <h1 className="font-display text-[32px] font-semibold tracking-tight text-ink">Settings</h1>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Status ready={config.data?.vitalsReady} label="SmartSpectra key" />
-          <Status ready={config.data?.coachReady} label="OpenServ key" />
+          <Status ready={config.data?.vitalsReady} label="SmartSpectra key" hint={config.data?.smartspectraHint} />
+          <Status ready={config.data?.coachReady} label="OpenServ key" hint={config.data?.servHint} />
         </div>
 
         {desktop ? (
@@ -136,15 +146,35 @@ function Settings() {
             <label className="block">
               <span className="font-semibold text-ink">SmartSpectra API key</span>
               <span className="block text-[13px] text-muted">Required. From physiology.presagetech.com</span>
-              <input type="password" autoComplete="off" value={smartspectra} onChange={(e) => setSmartspectra(e.target.value)} className={field} />
+              <input
+                type="password"
+                autoComplete="off"
+                value={smartspectra}
+                placeholder={savedPlaceholder(config.data?.smartspectraHint)}
+                onChange={(e) => {
+                  setSmartspectra(e.target.value)
+                  setSavedNote(null)
+                }}
+                className={field}
+              />
             </label>
             <label className="block">
               <span className="font-semibold text-ink">OpenServ API key</span>
               <span className="block text-[13px] text-muted">Optional, turns on the coach. From console.openserv.ai/settings/keys</span>
-              <input type="password" autoComplete="off" value={serv} onChange={(e) => setServ(e.target.value)} className={field} />
+              <input
+                type="password"
+                autoComplete="off"
+                value={serv}
+                placeholder={savedPlaceholder(config.data?.servHint)}
+                onChange={(e) => {
+                  setServ(e.target.value)
+                  setSavedNote(null)
+                }}
+                className={field}
+              />
             </label>
             {save.isError && <p className="rounded-xl bg-red-tint px-4 py-3 text-[14px] text-red-ink">{(save.error as Error).message}</p>}
-            {save.isSuccess && <p className="rounded-xl bg-green-tint px-4 py-3 text-[14px] text-green-ink">Saved.</p>}
+            {savedNote && <p className="rounded-xl bg-green-tint px-4 py-3 text-[14px] text-green-ink">{savedNote}</p>}
             <button
               type="submit"
               disabled={save.isPending || (!smartspectra.trim() && !serv.trim())}

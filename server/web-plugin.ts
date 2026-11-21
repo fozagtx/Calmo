@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { parseEnv } from 'node:util'
 import type { Connect, Plugin } from 'vite'
-import { AskSchema, type AppConfig } from '../src/lib/coach-types.ts'
+import { AskSchema, keyHint, type AppConfig } from '../src/lib/coach-types.ts'
 import { askCoach, listModels } from './coach.ts'
 import { createVitalsUpgrade } from './vitals-relay.ts'
 
@@ -21,6 +21,8 @@ function config(): AppConfig {
   return {
     vitalsReady: !!(process.env.SMARTSPECTRA_API_KEY ?? '').trim(),
     coachReady: !!(process.env.SERV_API_KEY ?? '').trim(),
+    smartspectraHint: keyHint((process.env.SMARTSPECTRA_API_KEY ?? '').trim()),
+    servHint: keyHint((process.env.SERV_API_KEY ?? '').trim()),
     model: (process.env.SERV_MODEL ?? '').trim() || DEFAULT_MODEL,
   }
 }

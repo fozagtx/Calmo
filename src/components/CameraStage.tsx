@@ -5,7 +5,8 @@ import { PHASE_TEXT, type Pace } from '../lib/paces'
 import { usePacer } from '../hooks/usePacer'
 
 const FACE_TIMEOUT_MS = 1500
-const PHASE_TINT = { in: '#D1E9FF', hold: '#FEF0C7', out: '#D1FADF' } as const
+const PHASE_RING = { in: '#84CAFF', hold: '#FEC84B', out: '#6CE9A6' } as const
+const PHASE_BAR = { in: '#1570EF', hold: '#F79009', out: '#12B76A' } as const
 
 interface Props {
   videoRef: RefObject<HTMLVideoElement | null>
@@ -29,13 +30,15 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 export function CameraStage({ videoRef, faceRef, pace, live, mood, hint }: Props) {
   const ringRef = useRef<HTMLDivElement | null>(null)
+  const barRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const boxRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
   const moodRef = useRef(mood)
   moodRef.current = mood
 
-  const pacer = usePacer(pace, live, (level) => {
-    if (ringRef.current) ringRef.current.style.transform = `scale(${(0.84 + level * 0.16).toFixed(4)})`
+  const pacer = usePacer(pace, live, (level, progress) => {
+    if (ringRef.current) ringRef.current.style.transform = `scale(${(0.8 + level * 0.2).toFixed(4)})`
+    if (barRef.current) barRef.current.style.transform = `scaleX(${progress.toFixed(4)})`
   })
 
   useEffect(() => {
@@ -97,11 +100,11 @@ export function CameraStage({ videoRef, faceRef, pace, live, mood, hint }: Props
       <div className="relative aspect-square w-full max-w-[460px]">
         <div
           ref={ringRef}
-          className="absolute inset-0 rounded-full transition-colors duration-700"
-          style={{ background: live ? PHASE_TINT[pacer.kind] : '#F2F4F7', transform: 'scale(0.92)' }}
+          className="absolute inset-0 rounded-full transition-colors duration-500"
+          style={{ background: live ? PHASE_RING[pacer.kind] : '#F2F4F7', transform: live ? 'scale(0.8)' : 'scale(0.92)' }}
         />
         <div
-          className="absolute inset-[9%] overflow-hidden rounded-full bg-surface transition-colors duration-700"
+          className="absolute inset-[10%] overflow-hidden rounded-full bg-surface transition-colors duration-700"
           style={{ boxShadow: `0 0 0 6px ${live ? moodInfo.color : '#EAECF0'}` }}
         >
           <video
@@ -129,9 +132,15 @@ export function CameraStage({ videoRef, faceRef, pace, live, mood, hint }: Props
       </div>
 
       {live && (
-        <div className="mt-5 flex items-baseline gap-3">
-          <span className="font-display text-[26px] font-semibold text-ink">{PHASE_TEXT[pacer.kind]}</span>
-          <span className="font-display text-[26px] font-semibold tabular-nums text-muted">{pacer.count}</span>
+        <div className="mt-6 w-full max-w-[360px]">
+          <div className="text-center">
+            <span className="font-display text-[30px] font-semibold" style={{ color: PHASE_BAR[pacer.kind] }}>
+              {PHASE_TEXT[pacer.kind]}
+            </span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface">
+            <div ref={barRef} className="h-full origin-left rounded-full" style={{ background: PHASE_BAR[pacer.kind], transform: 'scaleX(0)' }} />
+          </div>
         </div>
       )}
       {live && hint && (

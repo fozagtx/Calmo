@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, session, shell } from 'electron'
 import path from 'node:path'
-import { AskSchema, type AppConfig, type KeyUpdate } from '../src/lib/coach-types'
+import { AskSchema, keyHint, type AppConfig, type KeyUpdate } from '../src/lib/coach-types'
 import { askCoach, listModels } from '../server/coach'
 import { readKeys, saveKeys } from './keys'
 
@@ -19,7 +19,13 @@ const DEV_URL = process.env.CALMO_DEV_URL ?? ''
 
 function config(): AppConfig {
   const keys = readKeys()
-  return { vitalsReady: !!keys.smartspectra, coachReady: !!keys.serv, model: keys.model }
+  return {
+    vitalsReady: !!keys.smartspectra,
+    coachReady: !!keys.serv,
+    smartspectraHint: keyHint(keys.smartspectra),
+    servHint: keyHint(keys.serv),
+    model: keys.model,
+  }
 }
 
 function trustedUrl(url: string): boolean {
