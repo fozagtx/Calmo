@@ -5,3 +5,6 @@ dist/
 .vinxi/
 .env
 .docs/
+.agents/
+.claude/
+skills-lock.json
