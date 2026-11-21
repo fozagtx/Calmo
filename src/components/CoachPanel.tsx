@@ -56,9 +56,9 @@ export function CoachPanel({ title, subtitle, prompts, readings, entries, onEntr
   }
 
   useEffect(() => {
-    if (autoAsk && autoAskedRef.current !== autoAsk && config.data?.coachReady) {
+    if (autoAsk && autoAskedRef.current !== autoAsk && config.data?.coachReady && !mutation.isPending) {
       autoAskedRef.current = autoAsk
-      send(autoAsk, true)
+      send(autoAsk.replace(/ \[\d+\]$/, ''), true)
     }
   })
 

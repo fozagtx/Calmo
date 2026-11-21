@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Brand } from '../components/BrandMark'
@@ -46,6 +46,10 @@ function SessionPage() {
   const [paceId, setPaceId] = useState<PaceId>('steady')
   const [chat, setChat] = useState<ChatEntry[]>([])
   const [checkin, setCheckin] = useState<ChatEntry[]>([])
+  const [step, setStep] = useState(0)
+  const [coachCue, setCoachCue] = useState<string | null>(null)
+  const [settled, setSettled] = useState(false)
+  const guideRef = useRef({ framed: false, reading: false, calmSince: 0, easeSince: 0, lastCue: 0, done: false, cueId: 0 })
 
   const pace = PACES[paceId]
   const live = session.phase === 'live' || session.phase === 'connecting'
@@ -89,17 +93,96 @@ function SessionPage() {
       s.pulse ? `Pulse went from ${Math.round(s.pulse.start)} to ${Math.round(s.pulse.end)} bpm.` : 'Not enough stable pulse data.',
       s.hrv ? `HRV went from ${Math.round(s.hrv.start)} to ${Math.round(s.hrv.end)} ms.` : '',
       s.moodFirst ? `My estimated state started as ${MOODS[s.moodFirst].label} and ended as ${s.moodLast ? MOODS[s.moodLast].label : 'unknown'}.` : '',
-      `Say what changed, give one thing to do right before ${MODES[mode].forText}, then ask how I feel now.`,
+      `Say what changed, give one thing to do right before ${MODES[mode].forText}, end with one short affirmation I can carry with me, then ask how I feel now.`,
     ]
       .filter(Boolean)
       .join(' ')
   }, [session.summary, mode])
 
   const begin = () => {
-    setChat([chatEntry('coach', `Let's get you steady for ${MODES[mode].forText}. Follow the ring while I read you, then tell me how you feel.`)])
+    setChat([
+      chatEntry('coach', `Let's get you steady for ${MODES[mode].forText}. First, sit back so your head and upper chest fit inside the circle, with light on your face.`),
+    ])
     setCheckin([])
+    setStep(0)
+    setSettled(false)
+    setCoachCue(null)
+    guideRef.current = { framed: false, reading: false, calmSince: 0, easeSince: 0, lastCue: 0, done: false, cueId: 0 }
     void session.start(mode, paceId)
   }
+
+  const coachOn = !!config.data?.coachReady
+  const cue = useCallback(
+    (prompt: string, fallback: string, tag?: string) => {
+      if (coachOn) {
+        guideRef.current.cueId += 1
+        setCoachCue(`${prompt} [${guideRef.current.cueId}]`)
+      } else {
+        setChat((prev) => [...prev, chatEntry('note', fallback, tag)])
+      }
+    },
+    [coachOn],
+  )
+
+  useEffect(() => {
+    if (session.phase !== 'live') return
+    const g = guideRef.current
+    if (g.done) return
+    const now = Date.now()
+    const forText = MODES[mode].forText
+
+    if (!g.framed && session.validation?.ok) {
+      g.framed = true
+      setStep(1)
+      setChat((prev) => [...prev, chatEntry('note', 'Good, I can see you. Hold still and breathe with the ring while I read your pulse and breathing.', 'Step 1 done')])
+    }
+
+    if (g.framed && !g.reading && (metrics?.pulse?.s || metrics?.br?.s)) {
+      g.reading = true
+      g.lastCue = now
+      setStep(2)
+      cue(
+        'My readings just came in. In two short sentences, tell me what they show and how to follow the ring from here.',
+        'Your readings are in. Keep following the ring: breathe in as it grows, out as it shrinks.',
+        'Step 2 done',
+      )
+    }
+
+    if (g.reading) {
+      if (mood.now === 'calm') g.calmSince = g.calmSince || now
+      else g.calmSince = 0
+      if (mood.now === 'calm' || mood.now === 'settling') g.easeSince = g.easeSince || now
+      else g.easeSince = 0
+
+      const isSettled = (g.calmSince && now - g.calmSince >= 20000) || (g.easeSince && now - g.easeSince >= 45000)
+      const tooLong = session.startedAt && now - session.startedAt >= 8 * 60000
+      if (isSettled || tooLong) {
+        g.done = true
+        setStep(3)
+        setSettled(!!isSettled)
+        setChat((prev) => [
+          ...prev,
+          chatEntry(
+            'note',
+            isSettled ? `You're settled. You're ready for ${forText}. Wrapping up your session now.` : 'That is enough for now. Wrapping up your session.',
+            isSettled ? 'Step 3 done' : undefined,
+          ),
+        ])
+        window.setTimeout(() => void session.stop(), 4000)
+        return
+      }
+
+      if (now - g.lastCue >= 60000) {
+        g.lastCue = now
+        cue(
+          'Give me one short line of encouragement and one breathing cue for right now, based on my live readings.',
+          mood.now === 'calm' || mood.now === 'settling'
+            ? 'You are doing great. Keep this pace, slow and easy.'
+            : 'Keep going. Let each breath out be a little longer than the breath in.',
+        )
+      }
+    }
+  }, [session.phase, session.validation, session.startedAt, metrics, mood.now, mode, cue, session])
 
   const vitalsMissing = config.data && !config.data.vitalsReady
   const hint = session.validation && !session.validation.ok ? session.validation.hint || 'Adjusting camera' : null
@@ -153,6 +236,19 @@ function SessionPage() {
 
         {showStats && (
           <section className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+            <ol className="grid grid-cols-4 gap-2">
+              {['Get in frame', 'Let Calmo read you', 'Breathe with the ring', "You're ready"].map((label, i) => (
+                <li
+                  key={label}
+                  className={`rounded-xl px-2.5 py-2 text-[12px] font-semibold leading-tight transition-colors duration-500 ${
+                    i < step ? 'bg-green-tint text-green-ink' : i === step ? 'bg-brand text-white' : 'bg-surface text-muted'
+                  }`}
+                >
+                  <span className="block text-[11px] opacity-80">{i < step ? 'Done' : `Step ${i + 1}`}</span>
+                  {label}
+                </li>
+              ))}
+            </ol>
             <div className="flex items-center justify-center gap-4 rounded-2xl border border-line px-4 py-3">
               <div className="text-center">
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">You started</div>
@@ -183,7 +279,12 @@ function SessionPage() {
 
         {session.phase === 'summary' && session.summary && (
           <section className="flex min-h-0 flex-col gap-4 overflow-y-auto">
-            <h1 className="font-display text-[34px] font-semibold tracking-tight text-ink">Session done</h1>
+            <h1 className="font-display text-[34px] font-semibold tracking-tight text-ink">{settled ? "You're ready" : 'Session done'}</h1>
+            {settled && (
+              <p className="rounded-2xl bg-green px-5 py-4 font-display text-[19px] font-semibold text-white">
+                You settled yourself. Carry this pace into {MODES[mode].forText}.
+              </p>
+            )}
             {session.summary.moodFirst && (
               <p
                 className={`rounded-2xl px-5 py-4 font-display text-[19px] font-semibold ${
@@ -278,6 +379,7 @@ function SessionPage() {
               readings={readings}
               entries={chat}
               onEntries={setChat}
+              autoAsk={coachCue}
             />
           )}
 
