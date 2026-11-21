@@ -168,7 +168,7 @@ function SessionPage() {
                 </div>
               </div>
             </div>
-            <MetricTiles metrics={metrics} startedAt={session.startedAt || Date.now()} />
+            <MetricTiles metrics={metrics} startedAt={session.startedAt || Date.now()} hint={hint} />
             <BreathTrace traceRef={session.traceRef} live={live} />
             <button
               type="button"

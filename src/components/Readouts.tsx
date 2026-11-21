@@ -17,24 +17,25 @@ function Tile({ label, value, unit, note, soft }: { label: string; value: string
   )
 }
 
-function warmup(startedAt: number, seconds: number) {
+function warmup(startedAt: number, seconds: number, fallback: string) {
   const left = Math.max(0, Math.ceil(seconds - (Date.now() - startedAt) / 1000))
-  return left > 0 ? `Warming up, about ${left}s` : 'Hold still, almost there'
+  return left > 0 ? `Warming up, about ${left}s` : fallback
 }
 
-function reading(r: Reading | null, digits: number, startedAt: number, seconds: number) {
-  if (!r || !(r.c > 0)) return { value: '--', note: warmup(startedAt, seconds), soft: true }
+function reading(r: Reading | null, digits: number, startedAt: number, seconds: number, fallback: string) {
+  if (!r || !(r.c > 0)) return { value: '--', note: warmup(startedAt, seconds, fallback), soft: true }
   return {
     value: r.v.toFixed(digits),
-    note: r.s ? `Steady, ${Math.round(r.c)}% confidence` : warmup(startedAt, seconds),
+    note: r.s ? `Steady, ${Math.round(r.c)}% confidence` : warmup(startedAt, seconds, fallback),
     soft: !r.s,
   }
 }
 
-export function MetricTiles({ metrics, startedAt }: { metrics: LiveMetrics | null; startedAt: number }) {
-  const br = reading(metrics?.br ?? null, 1, startedAt, 30)
-  const pulse = reading(metrics?.pulse ?? null, 0, startedAt, 12)
-  const hrv = reading(metrics?.hrv ?? null, 0, startedAt, 60)
+export function MetricTiles({ metrics, startedAt, hint }: { metrics: LiveMetrics | null; startedAt: number; hint: string | null }) {
+  const weak = 'Weak signal: add light to your face and hold still'
+  const br = reading(metrics?.br ?? null, 1, startedAt, 30, hint ?? 'Weak signal: keep your upper chest in view and hold still')
+  const pulse = reading(metrics?.pulse ?? null, 0, startedAt, 12, hint ?? weak)
+  const hrv = reading(metrics?.hrv ?? null, 0, startedAt, 60, metrics?.pulse?.s ? 'Building from your pulse, hold still' : 'Needs a steady pulse first')
   const expr = metrics?.expression
   const showExpr = expr && expr.label !== 'unspecified'
   const blinks = metrics?.blinksPerMin
