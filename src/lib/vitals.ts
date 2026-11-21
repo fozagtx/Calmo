@@ -58,6 +58,14 @@ export class VitalsTracker {
   private blinkTimes: number[] = []
   private faceSince = 0
   private history: { br: Sample[]; pulse: Sample[]; hrv: Sample[] } = { br: [], pulse: [], hrv: [] }
+  private latest: {
+    br: Reading | null
+    pulse: Reading | null
+    hrv: Reading | null
+    expression: ExpressionReading | null
+    talking: boolean
+    face: FaceBox | null
+  } = { br: null, pulse: null, hrv: null, expression: null, talking: false, face: null }
 
   constructor(private readonly target: number) {}
 
@@ -69,14 +77,22 @@ export class VitalsTracker {
     for (const s of m.cardio?.pulseRate ?? []) if (s.stable) this.history.pulse.push({ t: toNumber(s.timestamp) / 1000, v: s.value })
     for (const s of m.cardio?.hrv ?? []) if (s.stable) this.history.hrv.push({ t: toNumber(s.timestamp) / 1000, v: s.rmssd })
 
+    const br = toReading(last(m.breathing?.rate))
+    if (br) this.latest.br = br
+    const pulse = toReading(last(m.cardio?.pulseRate))
+    if (pulse) this.latest.pulse = pulse
     const hrv = last(m.cardio?.hrv)
+    if (hrv) this.latest.hrv = { v: hrv.rmssd, c: hrv.confidence, s: !!hrv.stable }
     const exprRaw = last(m.face?.expression)
-    let expression: ExpressionReading | null = null
     if (exprRaw?.scores?.length) {
       const top = [...exprRaw.scores].sort((a, b) => b.confidence - a.confidence)[0]
       const label = typeof top.type === 'string' ? top.type.toLowerCase() : EXPRESSIONS[top.type] ?? 'unspecified'
-      expression = { label, conf: top.confidence, s: !!exprRaw.stable }
+      this.latest.expression = { label, conf: top.confidence, s: !!exprRaw.stable }
     }
+    const talking = last(m.face?.talking)
+    if (talking) this.latest.talking = !!talking.detected
+    const face = faceBox(last(m.face?.landmarks), frameW, frameH)
+    if (face) this.latest.face = face
 
     const blinking = m.face?.blinking ?? []
     if (blinking.length && !this.faceSince) this.faceSince = Date.now()
@@ -86,13 +102,13 @@ export class VitalsTracker {
     }
 
     return {
-      br: toReading(last(m.breathing?.rate)),
-      pulse: toReading(last(m.cardio?.pulseRate)),
-      hrv: hrv ? { v: hrv.rmssd, c: hrv.confidence, s: !!hrv.stable } : null,
-      expression,
-      talking: !!last(m.face?.talking)?.detected,
+      br: this.latest.br,
+      pulse: this.latest.pulse,
+      hrv: this.latest.hrv,
+      expression: this.latest.expression,
+      talking: this.latest.talking,
       blinksPerMin: this.blinksPerMin(),
-      face: faceBox(last(m.face?.landmarks), frameW, frameH),
+      face,
       trace: (m.breathing?.upperTrace ?? []).map((s) => [toNumber(s.timestamp) / 1000, s.value] as [number, number]),
     }
   }
