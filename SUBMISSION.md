@@ -106,4 +106,6 @@ Designed for that moment:
 
 ## Agent Session
 
-TODO (optional): embed your agent session here.
+Calmo was built end to end in a Claude Code session: the SmartSpectra integration, the Mac and web versions, the state ring, the coach and every fix after real camera tests.
+
+{% embed https://dev.to/agent_sessions/calmo-agent-sessionjsonl-7dmgdq %}
